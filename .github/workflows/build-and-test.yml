@@ -1,0 +1,45 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Python build and test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        
+    - name: Build
+      run: |
+        pip wheel -w dist .
+        
+    - name: Install
+      run: |
+        pip install power-system-simulation[dev,example] --find-links=dist
+
+    - name: Test with pytest
+      run: |
+        pytest
+
+    - name: Check the format
+      run: |
+        isort --check .
+        black --check .
+        pylint power_system_simulation
+
+    - name: Check notebook
+      run: |
+        jupyter execute example/final_presentation.ipynb

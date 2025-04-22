@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "power-system-simulation"
+authors = [{name = "TU/e EES group"}]
+description = "Student project for power system simulation"
+readme = "README.md"
+license = {text = "BSD License (BSD)"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License"
+]
+requires-python = ">=3.12"
+# add dependencies of your core package, check the license first!
+dependencies = []
+version = "0.1"
+
+[project.optional-dependencies]
+dev = [
+  'pytest',
+  'black',
+  'isort',
+  'pylint',
+  'pytest-cov'
+]
+
+# add more dependencies for running the examples
+example = [
+  'jupyter'
+]
+
+[tool.setuptools.packages.find]
+where = ["src"] 
+namespaces = false 
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--cov=power_system_simulation", "--cov-report", "term", "--cov-report", "html:python_cov_html", "--cov-fail-under=95"]
+
+[tool.black]
+line-length = 120
+target-version = ['py312']
+
+[tool.isort]
+profile = "black"
+combine_as_imports = true
+line_length = 120
+
+[tool.pylint.main]
+# Specify a score threshold under which the program will exit with error.
+fail-under = 10
+max-line-length = 120
+
+# Minimum Python version to use for version dependent checks. Will default to the
+# version used to run pylint.
+py-version = "3.12"
