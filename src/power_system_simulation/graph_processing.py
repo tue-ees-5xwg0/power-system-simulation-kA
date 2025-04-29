@@ -139,6 +139,7 @@ class GraphProcessor(nx.Graph):
         # put your implementation here
 
     def find_alternative_edges(self, disabled_edge_id: int) -> List[int]:
+        a =2
         """
         Given an enabled edge, do the following analysis:
             If the edge is going to be disabled,
