@@ -48,7 +48,7 @@ class GraphProcessor:
     ) -> None:
         """
         Initialize a graph processor object with an undirected graph.
-        Only the edges which are enabled are taken into account.
+        Only the edges which are enabled are taken into account. 
         Check if the input is valid and raise exceptions if not.
         The following conditions should be checked:
             1. vertex_ids and edge_ids should be unique. (IDNotUniqueError)
@@ -62,7 +62,7 @@ class GraphProcessor:
 
         Args:
             vertex_ids: list of vertex ids
-            edge_ids: liest of edge ids
+            edge_ids: list of edge ids
             edge_vertex_id_pairs: list of tuples of two integer
                 Each tuple is a vertex id pair of the edge.
             edge_enabled: list of bools indicating of an edge is enabled or not
