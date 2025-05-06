@@ -3,8 +3,10 @@ This is a skeleton for the graph processing assignment.
 
 We define a graph processor class with some function skeletons.
 """
-import networkx as nx
+
 from typing import List, Tuple
+
+import networkx as nx
 
 
 class IDNotFoundError(Exception):
@@ -48,7 +50,7 @@ class GraphProcessor:
     ) -> None:
         """
         Initialize a graph processor object with an undirected graph.
-        Only the edges which are enabled are taken into account. 
+        Only the edges which are enabled are taken into account.
         Check if the input is valid and raise exceptions if not.
         The following conditions should be checked:
             1. vertex_ids and edge_ids should be unique. (IDNotUniqueError)
@@ -69,57 +71,59 @@ class GraphProcessor:
             source_vertex_id: vertex id of the source in the graph
         """
         # put your implementation here
-            
-        #1 check vertex_ids and edge_ids to be unique
+
+        # 1 check vertex_ids and edge_ids to be unique
         for id_origin in range(len(vertex_ids)):
             for id_check in range(len(vertex_ids)):
-                if (id_origin != id_check and vertex_ids[id_origin] == vertex_ids[id_check]):
-                    raise IDNotUniqueError("Input list vertex_ids contains a duplicate at index %d and %d." % (id_origin, id_check))
-        
+                if id_origin != id_check and vertex_ids[id_origin] == vertex_ids[id_check]:
+                    raise IDNotUniqueError(
+                        "Input list vertex_ids contains a duplicate at index %d and %d." % (id_origin, id_check)
+                    )
+
         for id_origin in range(len(edge_ids)):
             for id_check in range(len(edge_ids)):
-                if (id_origin != id_check and edge_ids[id_origin] == edge_ids[id_check]):
-                    raise IDNotUniqueError("Input list edge_ids contains a duplicate at index %d and %d." % (id_origin, id_check))
+                if id_origin != id_check and edge_ids[id_origin] == edge_ids[id_check]:
+                    raise IDNotUniqueError(
+                        "Input list edge_ids contains a duplicate at index %d and %d." % (id_origin, id_check)
+                    )
 
-        #2 check edge_vertex_id_pairs is the same length as edge_ids
-        if (len(edge_vertex_id_pairs) != len(edge_ids)):
-            raise InputLengthDoesNotMatchError("The length of edge_ids does not match the length of edge_vertex_id_pairs.")
+        # 2 check edge_vertex_id_pairs is the same length as edge_ids
+        if len(edge_vertex_id_pairs) != len(edge_ids):
+            raise InputLengthDoesNotMatchError(
+                "The length of edge_ids does not match the length of edge_vertex_id_pairs."
+            )
 
-        #3 check edge_vertex_id_pairs has valid vertex ids
+        # 3 check edge_vertex_id_pairs has valid vertex ids
         for pair in edge_vertex_id_pairs:
             for vertex_origin in pair:
                 check = False
                 for vertex_check in vertex_ids:
-                    if (vertex_origin == vertex_check):
+                    if vertex_origin == vertex_check:
                         check = True
                 if not check:
                     raise IDNotFoundError("edge_vertex_id_pairs contains a non-existent vertex ID %d" % (vertex_origin))
 
-        #4 check edge_enabled has the same length as edge_ids
-        if (len(edge_enabled) != len(edge_ids)):
+        # 4 check edge_enabled has the same length as edge_ids
+        if len(edge_enabled) != len(edge_ids):
             raise InputLengthDoesNotMatchError("The length of edge_ids does not match the length of edge_enabled.")
 
-        #5 source_vertex_id should be a valid vertex id
+        # 5 source_vertex_id should be a valid vertex id
         check = False
         for vertex_check in vertex_ids:
-            if (vertex_check == source_vertex_id):
+            if vertex_check == source_vertex_id:
                 check = True
         if not check:
             raise IDNotFoundError("The source_vertex_id %d is a non-existent vertex ID." % (source_vertex_id))
-        
-        #6 the graph should be fully connected
 
+        # 6 the graph should be fully connected
 
-        #7 the graph should not contain cycles
-
+        # 7 the graph should not contain cycles
 
         # self.vertex_ids = vertex_ids
         # self.edge_ids = edge_ids
         # self.edge_vertex_id_pairs = edge_vertex_id_pairs
         # self.edge_enabled = edge_enabled
         # self.source_vertex_id = source_vertex_id
-
-
 
     def find_downstream_vertices(self, edge_id: int) -> List[int]:
         """
@@ -149,8 +153,6 @@ class GraphProcessor:
         pass
 
     def find_alternative_edges(self, disabled_edge_id: int) -> List[int]:
-        
-        
         """
         Given an enabled edge, do the following analysis:
             If the edge is going to be disabled,
