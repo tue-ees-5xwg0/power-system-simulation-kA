@@ -14,7 +14,7 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 # add dependencies of your core package, check the license first!
-dependencies = []
+dependencies = ['NetworkX']
 version = "0.1"
 
 [project.optional-dependencies]
