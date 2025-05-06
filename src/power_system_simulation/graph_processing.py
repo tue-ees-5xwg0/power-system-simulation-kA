@@ -105,13 +105,21 @@ class GraphProcessor:
             if (vertex_check == source_vertex_id):
                 check = True
         if not check:
-            raise IDNotFoundError("The source_vertex_id %d is a non-existent ID." % (source_vertex_id))
+            raise IDNotFoundError("The source_vertex_id %d is a non-existent vertex ID." % (source_vertex_id))
         
         #6 the graph should be fully connected
 
 
         #7 the graph should not contain cycles
-        
+
+
+        # self.vertex_ids = vertex_ids
+        # self.edge_ids = edge_ids
+        # self.edge_vertex_id_pairs = edge_vertex_id_pairs
+        # self.edge_enabled = edge_enabled
+        # self.source_vertex_id = source_vertex_id
+
+
 
     def find_downstream_vertices(self, edge_id: int) -> List[int]:
         """
