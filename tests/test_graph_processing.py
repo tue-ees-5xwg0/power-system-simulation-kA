@@ -125,7 +125,7 @@ def test_graph_processor_init_err3_invalid_id_pair_id():
 
     with pytest.raises(gp.IDNotFoundError) as output:
         gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
-    assert output.value.args[0] == "edge_vertex_id_pairs contains a non-existent vertex ID 9"
+    assert output.value.args[0] == "edge_vertex_id_pairs contains a non-existent vertex ID 9."
 
 
 def test_graph_processor_init_err4_edge_enabled_length_mismatch():
