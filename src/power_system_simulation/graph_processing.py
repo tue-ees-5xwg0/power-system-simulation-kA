@@ -95,22 +95,17 @@ class GraphProcessor(nx.Graph):
         if not check:
             raise IDNotFoundError(f"The source_vertex_id {source_vertex_id} is a non-existent vertex ID.")
 
-        # create nx graph
+        # create nx graph after input checks
         self.add_nodes_from(vertex_ids)
         for i, (u, v) in enumerate(edge_vertex_id_pairs):
             self.add_edge(u, v, id=edge_ids[i], enabled=edge_enabled[i])
-
         self.source_vertex_id = source_vertex_id
 
         # 6 the graph should be fully connected
 
+
         # 7 the graph should not contain cycles
 
-        # self.vertex_ids = vertex_ids
-        # self.edge_ids = edge_ids
-        # self.edge_vertex_id_pairs = edge_vertex_id_pairs
-        # self.edge_enabled = edge_enabled
-        # self.source_vertex_id = source_vertex_id
 
     def find_downstream_vertices(self, edge_id: int) -> List[int]:
         """
