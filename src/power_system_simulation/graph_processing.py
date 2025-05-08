@@ -6,7 +6,7 @@ We define a graph processor class with some function skeletons.
 
 from typing import List, Tuple
 
-# import networkx as nx
+import networkx as nx
 
 
 class IDNotFoundError(Exception):
@@ -33,7 +33,7 @@ class EdgeAlreadyDisabledError(Exception):
     "Error when trying to disable an edge that is already disabled."
 
 
-class GraphProcessor:
+class GraphProcessor(nx.Graph):
     """
     General documentation of this class.
     You need to describe the purpose of this class and the functions in it.
@@ -48,29 +48,9 @@ class GraphProcessor:
         edge_enabled: List[bool],
         source_vertex_id: int,
     ) -> None:
-        """
-        Initialize a graph processor object with an undirected graph.
-        Only the edges which are enabled are taken into account.
-        Check if the input is valid and raise exceptions if not.
-        The following conditions should be checked:
-            1. vertex_ids and edge_ids should be unique. (IDNotUniqueError)
-            2. edge_vertex_id_pairs should have the same length as edge_ids. (InputLengthDoesNotMatchError)
-            3. edge_vertex_id_pairs should contain valid vertex ids. (IDNotFoundError)
-            4. edge_enabled should have the same length as edge_ids. (InputLengthDoesNotMatchError)
-            5. source_vertex_id should be a valid vertex id. (IDNotFoundError)
-            6. The graph should be fully connected. (GraphNotFullyConnectedError)
-            7. The graph should not contain cycles. (GraphCycleError)
-        If one certain condition is not satisfied, the error in the parentheses should be raised.
 
-        Args:
-            vertex_ids: list of vertex ids
-            edge_ids: list of edge ids
-            edge_vertex_id_pairs: list of tuples of two integer
-                Each tuple is a vertex id pair of the edge.
-            edge_enabled: list of bools indicating of an edge is enabled or not
-            source_vertex_id: vertex id of the source in the graph
-        """
-        # put your implementation here
+        # initialize the nx.Graph base object
+        super().__init__()
 
         # 1 check vertex_ids and edge_ids to be unique
         for i_origin, id_origin in enumerate(vertex_ids):
@@ -114,6 +94,13 @@ class GraphProcessor:
                 check = True
         if not check:
             raise IDNotFoundError(f"The source_vertex_id {source_vertex_id} is a non-existent vertex ID.")
+
+        # create nx graph
+        self.add_nodes_from(vertex_ids)
+        for i, (u, v) in enumerate(edge_vertex_id_pairs):
+            self.add_edge(u, v, id=edge_ids[i], enabled=edge_enabled[i])
+
+        self.source_vertex_id = source_vertex_id
 
         # 6 the graph should be fully connected
 

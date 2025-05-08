@@ -105,7 +105,7 @@ def test_graph_processor_init_err2_id_pair_length_mismatch():
 
 def test_graph_processor_init_err3_invalid_id_pair_id():
     """
-    An ID pair is referring to non-existent vertex.
+    An ID pair is referring to a non-existent vertex.
     1--[1]--2--[2]--3
             |
            [3]   (9)
