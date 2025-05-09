@@ -106,6 +106,10 @@ class GraphProcessor(nx.Graph):
 
         # 7 the graph should not contain cycles
 
+    def is_edge_enabled(self,edge_id):
+        chosen_edge = [(u, v, d) for u, v, d in self.edges(data=True) if d.get('id', None) == edge_id ]
+        is_edge_enabled = chosen_edge[0][2].get('enabled', None)
+        return is_edge_enabled
 
     def find_downstream_vertices(self, edge_id: int) -> List[int]:
         """
@@ -134,7 +138,6 @@ class GraphProcessor(nx.Graph):
         # put your implementation here
 
     def find_alternative_edges(self, disabled_edge_id: int) -> List[int]:
-        a =2
         """
         Given an enabled edge, do the following analysis:
             If the edge is going to be disabled,
@@ -170,3 +173,13 @@ class GraphProcessor(nx.Graph):
             A list of alternative edge ids.
         """
         # put your implementation here
+
+        # disabled_edge_id should be a valid edge id
+        check = False
+        for edge_check in self.edge_ids:
+            if edge_check == self.edge_vertex_id:
+                check = True
+        if not check:
+            raise IDNotFoundError(f"The disabled_edge_id {disabled_edge_id} is a non-existent edge ID.")
+        
+        # disabled_edge_id should be initially enabled
