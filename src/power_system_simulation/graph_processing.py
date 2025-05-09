@@ -35,9 +35,7 @@ class EdgeAlreadyDisabledError(Exception):
 
 class GraphProcessor(nx.Graph):
     """
-    General documentation of this class.
-    You need to describe the purpose of this class and the functions in it.
-    We are using an undirected graph in the processor.
+    This class is an extension of the NetworkX undirected graph. It functions as a processor for network graphs.
     """
 
     def __init__(
@@ -103,9 +101,7 @@ class GraphProcessor(nx.Graph):
 
         # 6 the graph should be fully connected
 
-
         # 7 the graph should not contain cycles
-
 
     def find_downstream_vertices(self, edge_id: int) -> List[int]:
         """
