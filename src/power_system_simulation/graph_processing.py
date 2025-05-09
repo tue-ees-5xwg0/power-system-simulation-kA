@@ -33,6 +33,17 @@ class EdgeAlreadyDisabledError(Exception):
     "Error when trying to disable an edge that is already disabled."
 
 
+def check_duplicate_ids(ids: List[int], name):
+    for i_origin, id_origin in enumerate(ids):
+        for i_check, id_check in enumerate(ids):
+            if i_origin != i_check and id_origin == id_check:
+                raise IDNotUniqueError(
+                    f"Input list {name} contains a duplicate at index {i_origin} and {i_check}."
+                )
+    
+
+
+
 class GraphProcessor(nx.Graph):
     """
     This class is an extension of the NetworkX undirected graph. It functions as a processor for network graphs.
