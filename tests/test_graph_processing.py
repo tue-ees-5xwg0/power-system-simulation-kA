@@ -198,9 +198,17 @@ def test_is_edge_enabled():
     source_vertex_id = 1
 
     test = gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
-    assert test.is_edge_enabled(3) == True
-    assert test.is_edge_enabled(4) == False
+    assert gp.is_edge_enabled(test, 3) == True
 
+    with pytest.raises(gp.EdgeAlreadyDisabledError) as output:
+        gp.is_edge_enabled(test, 4)  
+    assert output.value.args[0] == "The chosen edge 4 is already disabled."
+
+    with pytest.raises(gp.IDNotFoundError) as output:
+        gp.is_edge_enabled(test, 9)  
+    assert output.value.args[0] == "The chosen edge 9 is not in the ID list."
+
+    
 def test_find_downstream_vertices_err1():
     """
     Placeholder test with a normal network. Should be turned into an actual test when the function has been made.
