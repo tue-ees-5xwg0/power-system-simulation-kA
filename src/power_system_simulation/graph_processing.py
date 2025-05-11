@@ -189,3 +189,10 @@ class GraphProcessor(nx.Graph):
             raise IDNotFoundError(f"The disabled_edge_id {disabled_edge_id} is a non-existent edge ID.")
         
         # disabled_edge_id should be initially enabled
+
+        # find alternative edges:
+        # copy graph (which can be edited)
+        # find currently disabled edges
+        # disable input disabled_edge_id
+        # check per disabled edge (by enabling) if whole graph is accesible without creating a cycle
+        # output edges that give a true
