@@ -178,6 +178,31 @@ def test_graph_processor_init_err5_invalid_source_id():
     assert output.value.args[0] == "The source_vertex_id 9 is not in the ID list."
 
 
+def test_graph_processor_init_err7_graph_contains_cycle_error():
+    """
+    The source ID is invalid.
+    1--[1]--2--[2]--3
+            |
+           [3]
+            |
+            4--[4]--5
+            |       |
+           [5]     [8]
+            |       |
+            6--[6]--7--[7]--8
+    """
+
+    vertex_ids = [1, 2, 3, 4, 5, 6, 7, 8]
+    edge_ids = [1, 2, 3, 4, 5, 6, 7, 8]
+    edge_vertex_id_pairs = [(1, 2), (2, 3), (2, 4), (4, 5), (4, 6), (6, 7), (7, 8), (5,7)]
+    edge_enabled = [True, True, True, True, True, True, True, True]
+    source_vertex_id = 1
+
+    with pytest.raises(gp.GraphCycleError) as output:
+        gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    assert output.value.args[0] == "The graph contains a cycle."
+
+
 def test_find_downstream_vertices_err1():
     """
     Placeholder test with a normal network. Should be turned into an actual test when the function has been made.

@@ -108,26 +108,28 @@ class GraphProcessor(nx.Graph):
             self.add_edge(u, v, id=edge_ids[i], enabled=edge_enabled[i])
         self.source_vertex_id = source_vertex_id
 
-        edge_ids_no_disabled = [i for i, enabled in zip(edge_ids, edge_enabled) if enabled]
-        edge_vertex_id_pairs_no_disabled = [i for i, enabled in zip(edge_vertex_id_pairs, edge_enabled) if enabled]
-        edge_enabled_no_disbled  = [i for i, enabled in zip(edge_enabled, edge_enabled) if enabled]
-        self_disabled_edges = GraphProcessor(vertex_ids, edge_ids_no_disabled, edge_vertex_id_pairs_no_disabled, edge_enabled_no_disbled, source_vertex_id)
-
+        if False in edge_enabled:
+            edge_ids = [i for i, enabled in zip(edge_ids, edge_enabled) if enabled]
+            edge_vertex_id_pairs = [i for i, enabled in zip(edge_vertex_id_pairs, edge_enabled) if enabled]
+            edge_enabled  = [i for i, enabled in zip(edge_enabled, edge_enabled) if enabled]
+            self_disabled_edges = GraphProcessor(vertex_ids, edge_ids_no_disabled, edge_vertex_id_pairs_no_disabled, edge_enabled_no_disbled, source_vertex_id)
+        else:
+            self_disabled_edges = self
         
         # 6 the graph should be fully connected
-        if not self_disabled_edges.is_connected():
+        if not nx.is_connected(self_disabled_edges):
+            del self_disabled_edges
             raise GraphNotFullyConnectedError(f"Graph is not fully connected.")
 
         # 7 the graph should not contain cycles
         if self_disabled_edges.is_cyclic():
-            raise GraphCycleError(f"Graph contains a cycle.")
+            del self_disabled_edges
+            raise GraphCycleError(f"The graph contains a cycle.")
         
         del self_disabled_edges
         
 
-
-
-    def is_cyclic(self) -> bool:
+    def is_cyclic(self, orientation=None) -> bool:
         "Checks if the graph is cyclic. It also takes into account the disabled edges. If you want it to not take into account the disabled edges, create a duplicate graph object with the disabled edges filtered out of it."
         if not self.is_directed() or orientation in (None, "original"):
 
@@ -208,9 +210,9 @@ class GraphProcessor(nx.Graph):
 
         else:
             assert len(cycle) == 0
-            return True
+            return False
 
-        return False
+        return True
 
     def find_downstream_vertices(self, edge_id: int) -> List[int]:
         """
