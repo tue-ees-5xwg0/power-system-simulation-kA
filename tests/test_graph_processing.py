@@ -175,7 +175,7 @@ def test_graph_processor_init_err5_invalid_source_id():
 
     with pytest.raises(gp.IDNotFoundError) as output:
         gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
-    assert output.value.args[0] == "The source_vertex_id 9 is a non-existent vertex ID."
+    assert output.value.args[0] == "The source_vertex_id 9 is not in the ID list."
 
 
 def test_find_downstream_vertices_err1():

@@ -33,15 +33,40 @@ class EdgeAlreadyDisabledError(Exception):
     "Error when trying to disable an edge that is already disabled."
 
 
-def check_duplicate_ids(ids: List[int], name):
+def check_duplicate_ids(ids: List[int], list_name):
+    "Check for duplicate ids in a list that should have unique ids"
     for i_origin, id_origin in enumerate(ids):
         for i_check, id_check in enumerate(ids):
             if i_origin != i_check and id_origin == id_check:
                 raise IDNotUniqueError(
-                    f"Input list {name} contains a duplicate at index {i_origin} and {i_check}."
+                    f"Input list {list_name} contains a duplicate at index {i_origin} and {i_check}."
                 )
-    
 
+
+def check_same_length(list1, list2, list1_name, list2_name):
+    "Check if two lists have the same length. This is useful when one list maps to the entries in another list."
+    if len(list1) != len(list2):
+        raise InputLengthDoesNotMatchError(f"The length of {list1_name} does not match the length of {list2_name}.")
+
+
+def check_contains_vertex_ids(vertex_ids: List[int], edge_vertex_id_pairs: List[Tuple[int, int]]):
+    "Check if all vertex_ids int the edge_vertex_id_pairs list map to an existing vertex_id."
+    for pair in edge_vertex_id_pairs:
+        for vertex_origin in pair:
+            check = False
+            for vertex_check in vertex_ids:
+                if vertex_origin == vertex_check:
+                    check = True
+            if not check:
+                raise IDNotFoundError(f"edge_vertex_id_pairs contains a non-existent vertex ID {vertex_origin}.")
+
+
+def check_contains_id(ids: List[int], id_check: int, item_name):
+    "Checks if a specific ID is present in a list."
+    for id_origin in ids:
+        if id_origin == id_check:
+            return
+    raise IDNotFoundError(f"The {item_name} {id_check} is not in the ID list.")
 
 
 class GraphProcessor(nx.Graph):
@@ -62,47 +87,20 @@ class GraphProcessor(nx.Graph):
         super().__init__()
 
         # 1 check vertex_ids and edge_ids to be unique
-        for i_origin, id_origin in enumerate(vertex_ids):
-            for i_check, id_check in enumerate(vertex_ids):
-                if i_origin != i_check and id_origin == id_check:
-                    raise IDNotUniqueError(
-                        f"Input list vertex_ids contains a duplicate at index {i_origin} and {i_check}."
-                    )
-
-        for i_origin, id_origin in enumerate(edge_ids):
-            for i_check, id_check in enumerate(edge_ids):
-                if i_origin != i_check and id_origin == id_check:
-                    raise IDNotUniqueError(
-                        f"Input list edge_ids contains a duplicate at index {i_origin} and {i_check}."
-                    )
+        check_duplicate_ids(vertex_ids, "vertex_ids")
+        check_duplicate_ids(edge_ids, "edge_ids")
 
         # 2 check edge_vertex_id_pairs is the same length as edge_ids
-        if len(edge_vertex_id_pairs) != len(edge_ids):
-            raise InputLengthDoesNotMatchError(
-                "The length of edge_ids does not match the length of edge_vertex_id_pairs."
-            )
+        check_same_length(edge_ids, edge_vertex_id_pairs, "edge_ids", "edge_vertex_id_pairs")
 
         # 3 check edge_vertex_id_pairs has valid vertex ids
-        for pair in edge_vertex_id_pairs:
-            for vertex_origin in pair:
-                check = False
-                for vertex_check in vertex_ids:
-                    if vertex_origin == vertex_check:
-                        check = True
-                if not check:
-                    raise IDNotFoundError(f"edge_vertex_id_pairs contains a non-existent vertex ID {vertex_origin}.")
+        check_contains_vertex_ids(vertex_ids, edge_vertex_id_pairs)
 
         # 4 check edge_enabled has the same length as edge_ids
-        if len(edge_enabled) != len(edge_ids):
-            raise InputLengthDoesNotMatchError("The length of edge_ids does not match the length of edge_enabled.")
+        check_same_length(edge_ids, edge_enabled, "edge_ids", "edge_enabled")
 
         # 5 source_vertex_id should be a valid vertex id
-        check = False
-        for vertex_check in vertex_ids:
-            if vertex_check == source_vertex_id:
-                check = True
-        if not check:
-            raise IDNotFoundError(f"The source_vertex_id {source_vertex_id} is a non-existent vertex ID.")
+        check_contains_id(vertex_ids, source_vertex_id, "source_vertex_id")
 
         # create nx graph after input checks
         self.add_nodes_from(vertex_ids)
