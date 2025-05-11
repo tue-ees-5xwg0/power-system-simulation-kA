@@ -6,6 +6,7 @@ from typing import List, Tuple
 
 import networkx as nx
 
+import copy
 
 class IDNotFoundError(Exception):
     "Error when an ID in a list cannot be found."
@@ -108,9 +109,25 @@ def is_edge_enabled(graph: nx.Graph, edge_id: int) -> bool :
     enabled_status = chosen_edge[0][2].get('enabled', None)
 
     if enabled_status is False:
-        raise EdgeAlreadyDisabledError(f"The chosen edge {edge_id} is already disabled.")
+        return False
     
     return True
+
+def set_edge_enabled_status(graph: nx.Graph, edge_id: int, status: bool):
+    """
+    Enables or disables an edge by its ID.
+    Checks if the edge_id: 
+    - is valid
+    - if it is already disabled (when prompted to be turned disabled).
+    """
+    for u, v, d in graph.edges(data=True):
+        if d.get("id") == edge_id:
+            if d.get("enabled", None) == status:
+                if status is False:
+                    raise EdgeAlreadyDisabledError(f"The chosen edge {edge_id} is already disabled.")
+            graph[u][v]["enabled"] = status
+            return
+    raise IDNotFoundError(f"The chosen edge {edge_id} is not in the ID list.")
 
 class GraphProcessor(nx.Graph):
     """
@@ -323,14 +340,38 @@ class GraphProcessor(nx.Graph):
         Returns:
             A list of alternative edge ids.
         """
+        # find alternative edges
         # put your implementation here
 
-        # disabled_edge_id should be a valid edge id and initially enabled
-        is_edge_enabled(self, disabled_edge_id)
-
-        # find alternative edges:
         # copy graph (which can be edited)
+        # Set chosen edge to disabled -> Returns errors if edge is already disabled or not valid id
+        self_copy = copy.deepcopy(self)
+        set_edge_enabled_status(self_copy, disabled_edge_id, False) 
+
+        valid_alternatives = []
+
         # find currently disabled edges
-        # disable input disabled_edge_id
-        # check per disabled edge (by enabling) if whole graph is accesible without creating a cycle
-        # output edges that give a true
+        for u, v, d in self.edges(data=True):
+            if d.get('enabled', None) == False:
+                candidate_edge_id = d.get('id', None)
+
+                # enable originally disabled edge
+                test_graph = copy.deepcopy(self_copy)
+                set_edge_enabled_status(test_graph, candidate_edge_id, True)
+
+                # check per if whole graph is accesible without creating a cycle
+                if not nx.is_connected(filter_disabled_edges(test_graph)):
+                    continue
+                    #raise GraphNotFullyConnectedError("The graph is not fully connected.")
+                if filter_disabled_edges(test_graph).is_cyclic():
+                    continue
+                    #raise GraphCycleError("The graph contains a cycle.")
+                
+                valid_alternatives.append(candidate_edge_id)
+
+        return valid_alternatives
+        
+        
+
+
+        
