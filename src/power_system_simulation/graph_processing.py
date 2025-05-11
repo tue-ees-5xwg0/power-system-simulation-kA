@@ -108,9 +108,109 @@ class GraphProcessor(nx.Graph):
             self.add_edge(u, v, id=edge_ids[i], enabled=edge_enabled[i])
         self.source_vertex_id = source_vertex_id
 
+        edge_ids_no_disabled = [i for i, enabled in zip(edge_ids, edge_enabled) if enabled]
+        edge_vertex_id_pairs_no_disabled = [i for i, enabled in zip(edge_vertex_id_pairs, edge_enabled) if enabled]
+        edge_enabled_no_disbled  = [i for i, enabled in zip(edge_enabled, edge_enabled) if enabled]
+        self_disabled_edges = GraphProcessor(vertex_ids, edge_ids_no_disabled, edge_vertex_id_pairs_no_disabled, edge_enabled_no_disbled, source_vertex_id)
+
+        
         # 6 the graph should be fully connected
+        if not self_disabled_edges.is_connected():
+            raise GraphNotFullyConnectedError(f"Graph is not fully connected.")
 
         # 7 the graph should not contain cycles
+        if self_disabled_edges.is_cyclic():
+            raise GraphCycleError(f"Graph contains a cycle.")
+        
+        del self_disabled_edges
+        
+
+
+
+    def is_cyclic(self) -> bool:
+        "Checks if the graph is cyclic. It also takes into account the disabled edges. If you want it to not take into account the disabled edges, create a duplicate graph object with the disabled edges filtered out of it."
+        if not self.is_directed() or orientation in (None, "original"):
+
+            def tailhead(edge):
+                return edge[:2]
+
+        elif orientation == "reverse":
+
+            def tailhead(edge):
+                return edge[1], edge[0]
+
+        elif orientation == "ignore":
+
+            def tailhead(edge):
+                if edge[-1] == "reverse":
+                    return edge[1], edge[0]
+                return edge[:2]
+
+        explored = set()
+        cycle = []
+        final_node = None
+        for start_node in self.nbunch_iter(self.source_vertex_id):
+            if start_node in explored:
+                # No loop is possible.
+                continue
+
+            edges = []
+            # All nodes seen in this iteration of edge_dfs
+            seen = {start_node}
+            # Nodes in active path.
+            active_nodes = {start_node}
+            previous_head = None
+
+            for edge in nx.edge_dfs(self, start_node, orientation):
+                # Determine if this edge is a continuation of the active path.
+                tail, head = tailhead(edge)
+                if head in explored:
+                    # Then we've already explored it. No loop is possible.
+                    continue
+                if previous_head is not None and tail != previous_head:
+                    # This edge results from backtracking.
+                    # Pop until we get a node whose head equals the current tail.
+                    # So for example, we might have:
+                    #  (0, 1), (1, 2), (2, 3), (1, 4)
+                    # which must become:
+                    #  (0, 1), (1, 4)
+                    while True:
+                        try:
+                            popped_edge = edges.pop()
+                        except IndexError:
+                            edges = []
+                            active_nodes = {tail}
+                            break
+                        else:
+                            popped_head = tailhead(popped_edge)[1]
+                            active_nodes.remove(popped_head)
+
+                        if edges:
+                            last_head = tailhead(edges[-1])[1]
+                            if tail == last_head:
+                                break
+                edges.append(edge)
+
+                if head in active_nodes:
+                    # We have a loop!
+                    cycle.extend(edges)
+                    final_node = head
+                    break
+                else:
+                    seen.add(head)
+                    active_nodes.add(head)
+                    previous_head = head
+
+            if cycle:
+                break
+            else:
+                explored.update(seen)
+
+        else:
+            assert len(cycle) == 0
+            return True
+
+        return False
 
     def is_edge_enabled(self,edge_id):
         chosen_edge = [(u, v, d) for u, v, d in self.edges(data=True) if d.get('id', None) == edge_id ]
