@@ -1,7 +1,5 @@
 """
-This is a skeleton for the graph processing assignment.
-
-We define a graph processor class with some function skeletons.
+This is a file containing the GraphProcessor object class, and supplemental funcitons.
 """
 
 from typing import List, Tuple
@@ -34,7 +32,10 @@ class EdgeAlreadyDisabledError(Exception):
 
 
 def check_duplicate_ids(ids: List[int], list_name):
-    "Check for duplicate ids in a list that should have unique ids"
+    """
+    Check for duplicate ids in a list that should have unique ids
+    """
+
     for i_origin, id_origin in enumerate(ids):
         for i_check, id_check in enumerate(ids):
             if i_origin != i_check and id_origin == id_check:
@@ -44,13 +45,19 @@ def check_duplicate_ids(ids: List[int], list_name):
 
 
 def check_same_length(list1, list2, list1_name, list2_name):
-    "Check if two lists have the same length. This is useful when one list maps to the entries in another list."
+    """
+    Check if two lists have the same length. This is useful when one list maps to the entries in another list.
+    """
+
     if len(list1) != len(list2):
         raise InputLengthDoesNotMatchError(f"The length of {list1_name} does not match the length of {list2_name}.")
 
 
 def check_contains_vertex_ids(vertex_ids: List[int], edge_vertex_id_pairs: List[Tuple[int, int]]):
-    "Check if all vertex_ids int the edge_vertex_id_pairs list map to an existing vertex_id."
+    """
+    Check if all vertex_ids int the edge_vertex_id_pairs list map to an existing vertex_id.
+    """
+
     for pair in edge_vertex_id_pairs:
         for vertex_origin in pair:
             check = False
@@ -62,11 +69,34 @@ def check_contains_vertex_ids(vertex_ids: List[int], edge_vertex_id_pairs: List[
 
 
 def check_contains_id(ids: List[int], id_check: int, item_name):
-    "Checks if a specific ID is present in a list."
+    """
+    Checks if a specific ID is present in a list.
+    """
+
     for id_origin in ids:
         if id_origin == id_check:
             return
     raise IDNotFoundError(f"The {item_name} {id_check} is not in the ID list.")
+
+
+def filter_disabled_edges(graph):
+    """
+    Returs a GraphProcessor with all disabled edges removed.
+    """
+
+    vertex_ids = graph.nodes
+
+    enabled_edges = [(u, v, d) for u, v, d in graph.edges(data=True) if d.get("enabled", None) is True]
+    edge_ids = []
+    edge_vertex_id_pairs = []
+    edge_enabled = []
+
+    for edge in enabled_edges:
+        edge_ids.append(edge[2].get("id", None))
+        edge_vertex_id_pairs.append((edge[0], edge[1]))
+        edge_enabled.append(True)
+
+    return GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, graph.source_vertex_id, True)
 
 
 class GraphProcessor(nx.Graph):
@@ -81,6 +111,7 @@ class GraphProcessor(nx.Graph):
         edge_vertex_id_pairs: List[Tuple[int, int]],
         edge_enabled: List[bool],
         source_vertex_id: int,
+        recursive_object=False,
     ) -> None:
 
         # initialize the nx.Graph base object
@@ -108,49 +139,52 @@ class GraphProcessor(nx.Graph):
             self.add_edge(u, v, id=edge_ids[i], enabled=edge_enabled[i])
         self.source_vertex_id = source_vertex_id
 
-        if False in edge_enabled:
-            edge_ids = [i for i, enabled in zip(edge_ids, edge_enabled) if enabled]
-            edge_vertex_id_pairs = [i for i, enabled in zip(edge_vertex_id_pairs, edge_enabled) if enabled]
-            edge_enabled  = [i for i, enabled in zip(edge_enabled, edge_enabled) if enabled]
-            self_disabled_edges = GraphProcessor(vertex_ids, edge_ids_no_disabled, edge_vertex_id_pairs_no_disabled, edge_enabled_no_disbled, source_vertex_id)
-        else:
-            self_disabled_edges = self
-        
-        # 6 the graph should be fully connected
-        if not nx.is_connected(self_disabled_edges):
-            del self_disabled_edges
-            raise GraphNotFullyConnectedError(f"Graph is not fully connected.")
+        # only run this if the object is created as a normal object, not when run by another function such as is_cyclic
+        if not recursive_object:
 
-        # 7 the graph should not contain cycles
-        if self_disabled_edges.is_cyclic():
-            del self_disabled_edges
-            raise GraphCycleError(f"The graph contains a cycle.")
-        
-        del self_disabled_edges
-        
+            # 6 the graph should be fully connected
+            if not nx.is_connected(filter_disabled_edges(self)):
+                raise GraphNotFullyConnectedError("The graph is not fully connected.")
+
+            # 7 the graph should not contain cycles
+            if filter_disabled_edges(self).is_cyclic():
+                raise GraphCycleError("The graph contains a cycle.")
+
+    # def has_disabled_edges(self) -> bool:
+    #     """
+    #     Checks if the object has any disabled edges.
+    #     """
+
+    #     if len([(u, v, d) for u, v, d in self.edges(data=True) if d.get("enabled", None) is False]) == 0:
+    #         return False
+    #     return True
 
     def is_cyclic(self, orientation=None) -> bool:
-        "Checks if the graph is cyclic. It also takes into account the disabled edges. If you want it to not take into account the disabled edges, create a duplicate graph object with the disabled edges filtered out of it."
+        """
+        Checks if the graph is cyclic. It also takes into account the disabled edges. If you want it to not take into
+        account the disabled edges, create a duplicate graph object with the disabled edges filtered out of it. (You
+        can use filter_disabled_edges(self) for that)
+        """
+
         if not self.is_directed() or orientation in (None, "original"):
 
             def tailhead(edge):
                 return edge[:2]
 
-        elif orientation == "reverse":
+        # elif orientation == "reverse":
 
-            def tailhead(edge):
-                return edge[1], edge[0]
+        #     def tailhead(edge):
+        #         return edge[1], edge[0]
 
-        elif orientation == "ignore":
+        # elif orientation == "ignore":
 
-            def tailhead(edge):
-                if edge[-1] == "reverse":
-                    return edge[1], edge[0]
-                return edge[:2]
+        #     def tailhead(edge):
+        #         if edge[-1] == "reverse":
+        #             return edge[1], edge[0]
+        #         return edge[:2]
 
         explored = set()
         cycle = []
-        final_node = None
         for start_node in self.nbunch_iter(self.source_vertex_id):
             if start_node in explored:
                 # No loop is possible.
@@ -166,9 +200,11 @@ class GraphProcessor(nx.Graph):
             for edge in nx.edge_dfs(self, start_node, orientation):
                 # Determine if this edge is a continuation of the active path.
                 tail, head = tailhead(edge)
-                if head in explored:
+                
+                # if head in explored:
                     # Then we've already explored it. No loop is possible.
-                    continue
+                    # continue
+                
                 if previous_head is not None and tail != previous_head:
                     # This edge results from backtracking.
                     # Pop until we get a node whose head equals the current tail.
@@ -196,17 +232,16 @@ class GraphProcessor(nx.Graph):
                 if head in active_nodes:
                     # We have a loop!
                     cycle.extend(edges)
-                    final_node = head
                     break
-                else:
-                    seen.add(head)
-                    active_nodes.add(head)
-                    previous_head = head
+
+                seen.add(head)
+                active_nodes.add(head)
+                previous_head = head
 
             if cycle:
                 break
-            else:
-                explored.update(seen)
+
+            explored.update(seen)
 
         else:
             assert len(cycle) == 0
@@ -214,9 +249,13 @@ class GraphProcessor(nx.Graph):
 
         return True
 
-    def is_edge_enabled(self,edge_id):
-        chosen_edge = [(u, v, d) for u, v, d in self.edges(data=True) if d.get('id', None) == edge_id ]
-        is_edge_enabled = chosen_edge[0][2].get('enabled', None)
+    def is_edge_enabled(self, edge_id):
+        """
+        Checks if a given edge is enabled or not.
+        """
+
+        chosen_edge = [(u, v, d) for u, v, d in self.edges(data=True) if d.get("id", None) == edge_id]
+        is_edge_enabled = chosen_edge[0][2].get("enabled", None)
         return is_edge_enabled
 
     def find_downstream_vertices(self, edge_id: int) -> List[int]:
@@ -289,7 +328,7 @@ class GraphProcessor(nx.Graph):
                 check = True
         if not check:
             raise IDNotFoundError(f"The disabled_edge_id {disabled_edge_id} is a non-existent edge ID.")
-        
+
         # disabled_edge_id should be initially enabled
 
         # find alternative edges:
