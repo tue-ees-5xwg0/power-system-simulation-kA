@@ -98,6 +98,19 @@ def filter_disabled_edges(graph):
 
     return GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, graph.source_vertex_id, True)
 
+def is_edge_enabled(graph: nx.Graph, edge_id: int) -> bool :
+    "Checks if the edge is present in the list and if it is already disabled."
+    chosen_edge = [(u, v, d) for u, v, d in graph.edges(data=True) if d.get('id') == edge_id]
+
+    if not chosen_edge:
+        raise IDNotFoundError(f"The chosen edge {edge_id} is not in the ID list.")
+    
+    enabled_status = chosen_edge[0][2].get('enabled', None)
+
+    if enabled_status is False:
+        raise EdgeAlreadyDisabledError(f"The chosen edge {edge_id} is already disabled.")
+    
+    return True
 
 class GraphProcessor(nx.Graph):
     """
@@ -321,15 +334,8 @@ class GraphProcessor(nx.Graph):
         """
         # put your implementation here
 
-        # disabled_edge_id should be a valid edge id
-        check = False
-        for edge_check in self.edge_ids:
-            if edge_check == self.edge_vertex_id:
-                check = True
-        if not check:
-            raise IDNotFoundError(f"The disabled_edge_id {disabled_edge_id} is a non-existent edge ID.")
-
-        # disabled_edge_id should be initially enabled
+        # disabled_edge_id should be a valid edge id and initially enabled
+        is_edge_enabled(self, disabled_edge_id)
 
         # find alternative edges:
         # copy graph (which can be edited)
