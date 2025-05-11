@@ -262,15 +262,6 @@ class GraphProcessor(nx.Graph):
 
         return True
 
-    def is_edge_enabled(self, edge_id):
-        """
-        Checks if a given edge is enabled or not.
-        """
-
-        chosen_edge = [(u, v, d) for u, v, d in self.edges(data=True) if d.get("id", None) == edge_id]
-        is_edge_enabled = chosen_edge[0][2].get("enabled", None)
-        return is_edge_enabled
-
     def find_downstream_vertices(self, edge_id: int) -> List[int]:
         """
         Given an edge id, return all the vertices which are in the downstream of the edge,
