@@ -284,40 +284,58 @@ class GraphProcessor(nx.Graph):
         """
 
         # put your implementation here
-        edge_exists = False
-        edge_enabled = False
-        edge_vertices = None
+        # Check if edge exists using existing helper function
+        edge_ids = [data.get('id') for _, _, data in self.edges(data=True)]
+        try:
+            check_contains_id(edge_ids, edge_id, "edge_id")
+        except IDNotFoundError:
+            raise IDNotFoundError(f"Edge ID {edge_id} not found")
 
+        # Get edge data and vertices
+        edge_data = None
+        edge_vertices = None
         for u, v, data in self.edges(data=True):
-            if data['id'] == edge_id:
-                edge_exists =True 
-                edge_enabled = data['enabled']
-                edge_vertices =(u,v)
+            if data.get('id') == edge_id:
+                edge_data = data
+                edge_vertices = (u, v)
                 break
 
-        if not edge_exists:
-            raise IDNotFoundError(f"Edge ID {edge_id} not found")
-        if not edge_enabled:
+        # Return empty list if edge is disabled
+        if not edge_data.get('enabled', False):
             return []
-            #create subgraph with enabled edges
-        enabled_edges = [(u, v) for u, v, data in self.edges(data=True) if data['enabled']]
-        enabled_subgraph = nx.Graph(enabled_edges)
-        # Build BFS tree from source
-        try:
-            bfs_tree = nx.bfs_tree(enabled_subgraph, self.source_vertex_id)
-        except nx.NetworkXError:
-            # Source node not in graph (shouldn't happen as init checks connectivity)
-            return []
-    
-        # Determine which vertex is downstream
+
+        # Create subgraph with only enabled edges using existing helper function
+        filtered_graph = filter_disabled_edges(self)
+        
+        # Check which vertex is downstream in the edge
         u, v = edge_vertices
-        if u in bfs_tree and v in bfs_tree.pred and bfs_tree.pred[v] == u:
+        
+        # Get the BFS tree from source
+        try:
+            bfs_tree = nx.bfs_tree(filtered_graph, self.source_vertex_id)
+        except nx.NetworkXError:
+            return []  # Source not in graph (shouldn't happen as init checks connectivity)
+        
+        # Determine which vertex of the edge is downstream
+        downstream_vertex = None
+        if v in bfs_tree.pred and bfs_tree.pred[v] == u:
             downstream_vertex = v
-        elif v in bfs_tree and u in bfs_tree.pred and bfs_tree.pred[u] == v:
+        elif u in bfs_tree.pred and bfs_tree.pred[u] == v:
             downstream_vertex = u
         else:
-            # Edge not in BFS tree (shouldn't happen in a valid connected acyclic graph)
+            # Edge not in BFS tree (shouldn't happen in valid connected acyclic graph)
             return []
+        
+        # Get all nodes in the subtree rooted at downstream_vertex
+        subtree_nodes = set()
+        stack = [downstream_vertex]
+        while stack:
+            node = stack.pop()
+            subtree_nodes.add(node)
+            for child in bfs_tree.successors(node):
+                stack.append(child)
+        
+        return sorted(subtree_nodes)
     
     def find_alternative_edges(self, disabled_edge_id: int) -> List[int]:
         """
