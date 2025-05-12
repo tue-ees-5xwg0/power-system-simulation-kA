@@ -140,29 +140,29 @@ class GraphProcessor(nx.Graph):
                 edge_vertices =(u,v)
                 break
 
-            if not edge_exists:
-                raise IDNotFoundError(f"Edge ID {edge_id} not found")
+        if not edge_exists:
+            raise IDNotFoundError(f"Edge ID {edge_id} not found")
         if not edge_enabled:
             return []
-     #create subgraph with enabled edges
-    enabled_edges = [(u, v) for u, v, data in self.edges(data=True) if data['enabled']]
-    enabled_subgraph = nx.Graph(enabled_edges)
-    # Build BFS tree from source
-    try:
-        bfs_tree = nx.bfs_tree(enabled_subgraph, self.source_vertex_id)
-    except nx.NetworkXError:
-        # Source node not in graph (shouldn't happen as init checks connectivity)
-        return []
+            #create subgraph with enabled edges
+        enabled_edges = [(u, v) for u, v, data in self.edges(data=True) if data['enabled']]
+        enabled_subgraph = nx.Graph(enabled_edges)
+        # Build BFS tree from source
+        try:
+            bfs_tree = nx.bfs_tree(enabled_subgraph, self.source_vertex_id)
+        except nx.NetworkXError:
+            # Source node not in graph (shouldn't happen as init checks connectivity)
+            return []
     
-    # Determine which vertex is downstream
-    u, v = edge_vertices
-    if u in bfs_tree and v in bfs_tree.pred and bfs_tree.pred[v] == u:
-        downstream_vertex = v
-    elif v in bfs_tree and u in bfs_tree.pred and bfs_tree.pred[u] == v:
-        downstream_vertex = u
-    else:
-        # Edge not in BFS tree (shouldn't happen in a valid connected acyclic graph)
-        return []
+        # Determine which vertex is downstream
+        u, v = edge_vertices
+        if u in bfs_tree and v in bfs_tree.pred and bfs_tree.pred[v] == u:
+            downstream_vertex = v
+        elif v in bfs_tree and u in bfs_tree.pred and bfs_tree.pred[u] == v:
+            downstream_vertex = u
+        else:
+            # Edge not in BFS tree (shouldn't happen in a valid connected acyclic graph)
+            return []
     
     def find_alternative_edges(self, disabled_edge_id: int) -> List[int]:
         """
