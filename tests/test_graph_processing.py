@@ -276,6 +276,69 @@ def test_graph_processor_init_err7_graph_contains_cycle_disabled_error():
     assert gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
 
 
+def test_find_downstream_vertices_normal_case():
+    """
+    Test normal case where edge is enabled and has downstream vertices
+    Graph structure:
+    1(source)--[1]--2--[2]--3
+            |
+           [3]
+            |
+            4--[4]--5
+    """
+
+    vertex_ids = [1, 2, 3, 4, 5]
+    edge_ids = [1, 2, 3, 4]
+    edge_vertex_id_pairs = [(1, 2), (2, 3), (2, 4), (4, 5)]
+    edge_enabled = [True, True, True, True]
+    source_vertex_id = 1
+
+    graph = gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+
+    # Test edge 1 (1-2) - downstream should be 2,3,4,5
+    assert sorted(graph.find_downstream_vertices(1)) == [2, 3, 4, 5]
+
+    # Test edge 2 (2-3) - downstream should be 3
+    assert graph.find_downstream_vertices(2) == [3]
+
+    # Test edge 3 (2-4) - downstream should be 4,5
+    assert sorted(graph.find_downstream_vertices(3)) == [4, 5]
+
+    # Test edge 4 (4-5) - downstream should be 5
+    assert graph.find_downstream_vertices(4) == [5]
+
+
+def test_find_downstream_vertices_disabled_case():
+    """
+    vertex_0 (source) --edge_1(enabled)-- vertex_2 --edge_9(enabled)-- vertex_10
+                 |                               |
+                 |                           edge_7(disabled)
+                 |                               |
+                 -----------edge_3(enabled)-- vertex_4
+                 |                               |
+                 |                           edge_8(disabled)
+                 |                               |
+                 -----------edge_5(enabled)-- vertex_6
+    """
+    vertex_ids = [0, 2, 4, 6, 10]
+    edge_ids = [1, 3, 5, 7, 8, 9]
+    edge_vertex_id_pairs = [(0, 2), (0, 4), (0, 6), (2, 4), (4, 6), (2, 10)]
+    edge_enabled = [True, True, True, False, False, True]
+    source_vertex_id = 0
+    graph = gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+
+    assert sorted(graph.find_downstream_vertices(1)) == [2, 10]
+    assert graph.find_downstream_vertices(9) == [10]
+    assert graph.find_downstream_vertices(7) == []
+
+    with pytest.raises(gp.IDNotFoundError) as output:
+        graph.find_downstream_vertices(2)
+    assert output.value.args[0] == "The edge_id 2 is not in the ID list."
+
+    graph.source_vertix_id = 999  # invalid node
+    assert graph.find_downstream_vertices(7) == []
+
+
 def test_is_edge_enabled():
     """
     The chosen edge is either enabled or disabled, or not a valid edge_id.
@@ -350,30 +413,6 @@ def test_edge_set_to_correct_enabled_status():
     # Test if edge 7 is actually enabled
     gp.set_edge_enabled_status(test, 7, True)
     assert gp.is_edge_enabled(test, 7) == True
-
-
-# def test_find_downstream_vertices_err1():
-#     """
-#     Placeholder test with a normal network. Should be turned into an actual test when the function has been made.
-#     1--[1]--2--[2]--3
-#             |
-#            [3]
-#             |
-#             4--[4]--5
-#             |
-#            [5]
-#             |
-#             6--[6]--7--[7]--8
-#     """
-
-#     vertex_ids = [1, 2, 3, 4, 5, 6, 7, 8]
-#     edge_ids = [1, 2, 3, 4, 5, 6, 7]
-#     edge_vertex_id_pairs = [(1, 2), (2, 3), (2, 4), (4, 5), (4, 6), (6, 7), (7, 8)]
-#     edge_enabled = [True, True, True, True, True, True, True]
-#     source_vertex_id = 1
-
-#     test = gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
-#     assert test.find_downstream_vertices(1) == None
 
 
 def test_find_alternative_edges_err1():
