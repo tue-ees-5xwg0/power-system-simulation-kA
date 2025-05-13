@@ -284,7 +284,7 @@ def test_graph_processor_is_edge_enabled():
            [3]
             |
             4--[4]--5
-            |       
+            |
            [5]     [8]
             |
             6--[6]--7--[7]--8
@@ -299,4 +299,3 @@ def test_graph_processor_is_edge_enabled():
     test = gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
     assert test.is_edge_enabled(3) == True
     assert test.is_edge_enabled(8) == False
-
