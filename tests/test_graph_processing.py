@@ -276,7 +276,6 @@ def test_graph_processor_init_err7_graph_contains_cycle_disabled_error():
     assert gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
 
 
-
 def test_find_downstream_vertices_normal_case():
     """
     Test normal case where edge is enabled and has downstream vertices
@@ -338,3 +337,118 @@ def test_find_downstream_vertices_disabled_case():
 
     graph.source_vertix_id = 999  # invalid node
     assert graph.find_downstream_vertices(7) == []
+
+
+def test_is_edge_enabled():
+    """
+    The chosen edge is either enabled or disabled, or not a valid edge_id.
+
+    vertex_0 (source) --edge_1(enabled)-- vertex_2 --edge_9(enabled)-- vertex_10
+                 |                               |
+                 |                           edge_7(disabled)
+                 |                               |
+                 -----------edge_3(enabled)-- vertex_4
+                 |                               |
+                 |                           edge_8(disabled)
+                 |                               |
+                 -----------edge_5(enabled)-- vertex_6
+    """
+
+    vertex_ids = [0, 2, 4, 6, 10]
+    edge_ids = [1, 3, 5, 7, 8, 9]
+    edge_vertex_id_pairs = [(0, 2), (0, 4), (0, 6), (2, 4), (4, 6), (2, 10)]
+    edge_enabled = [True, True, True, False, False, True]
+    source_vertex_id = 0
+
+    test = gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+
+    # Test if edges are enabled or disabled
+    assert gp.is_edge_enabled(test, 3) == True
+    assert gp.is_edge_enabled(test, 7) == False
+
+    # Test if error is raised if chosen edge is not a valid ID
+    with pytest.raises(gp.IDNotFoundError) as output:
+        gp.is_edge_enabled(test, 10)
+    assert output.value.args[0] == "The chosen edge 10 is not in the ID list."
+
+
+def test_edge_set_to_correct_enabled_status():
+    """
+    Tests that the edge is correctly set to enabled or disabled
+    and if error is given is edge is already disabled or not a valid id.
+
+    vertex_0 (source) --edge_1(enabled)-- vertex_2 --edge_9(enabled)-- vertex_10
+                 |                               |
+                 |                           edge_7(disabled)
+                 |                               |
+                 -----------edge_3(enabled)-- vertex_4
+                 |                               |
+                 |                           edge_8(disabled)
+                 |                               |
+                 -----------edge_5(enabled)-- vertex_6
+    """
+
+    vertex_ids = [0, 2, 4, 6, 10]
+    edge_ids = [1, 3, 5, 7, 8, 9]
+    edge_vertex_id_pairs = [(0, 2), (0, 4), (0, 6), (2, 4), (4, 6), (2, 10)]
+    edge_enabled = [True, True, True, False, False, True]
+    source_vertex_id = 0
+
+    test = gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+
+    # Test if edge 1 is actually disabled
+    gp.set_edge_enabled_status(test, 1, False)
+    assert gp.is_edge_enabled(test, 1) == False
+
+    # Test if error is raised if chosen edge is already disabled
+    with pytest.raises(gp.EdgeAlreadyDisabledError) as output:
+        gp.set_edge_enabled_status(test, 7, False)
+    assert output.value.args[0] == "The chosen edge 7 is already disabled."
+
+    # Test if error is raised if chosen edge is not a valid ID
+    with pytest.raises(gp.IDNotFoundError) as output:
+        gp.set_edge_enabled_status(test, 10, False)
+    assert output.value.args[0] == "The chosen edge 10 is not in the ID list."
+
+    # Test if edge 7 is actually enabled
+    gp.set_edge_enabled_status(test, 7, True)
+    assert gp.is_edge_enabled(test, 7) == True
+
+
+def test_find_alternative_edges_err1():
+    """
+    Tests that alternative edges are found
+
+    vertex_0 (source) --edge_1(enabled)-- vertex_2 --edge_9(enabled)-- vertex_10
+                 |                               |
+                 |                           edge_7(disabled)
+                 |                               |
+                 -----------edge_3(enabled)-- vertex_4
+                 |                               |
+                 |                           edge_8(disabled)
+                 |                               |
+                 -----------edge_5(enabled)-- vertex_6
+    """
+    vertex_ids = [0, 2, 4, 6, 10]
+    edge_ids = [1, 3, 5, 7, 8, 9]
+    edge_vertex_id_pairs = [(0, 2), (0, 4), (0, 6), (2, 4), (4, 6), (2, 10)]
+    edge_enabled = [True, True, True, False, False, True]
+    source_vertex_id = 0
+
+    test = gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+
+    # tests if found alternative edges for disabled edge input are correct (connect the graph and acyclic)
+    assert test.find_alternative_edges(1) == [7]
+    assert test.find_alternative_edges(3) == [7, 8]
+    assert test.find_alternative_edges(5) == [8]
+    assert test.find_alternative_edges(9) == []
+
+    # Test if error is raised if chosen edge is already disabled
+    with pytest.raises(gp.EdgeAlreadyDisabledError) as output:
+        test.find_alternative_edges(7)
+    assert output.value.args[0] == "The chosen edge 7 is already disabled."
+
+    # Test if error is raised if chosen edge is not a valid ID
+    with pytest.raises(gp.IDNotFoundError) as output:
+        test.find_alternative_edges(10)
+    assert output.value.args[0] == "The chosen edge 10 is not in the ID list."

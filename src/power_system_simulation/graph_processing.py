@@ -2,6 +2,7 @@
 This is a file containing the GraphProcessor object class, and supplemental funcitons.
 """
 
+import copy
 from typing import List, Tuple
 
 import networkx as nx
@@ -97,6 +98,38 @@ def filter_disabled_edges(graph):
         edge_enabled.append(True)
 
     return GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, graph.source_vertex_id, True)
+
+
+def is_edge_enabled(graph: nx.Graph, edge_id: int) -> bool:
+    "Checks if the edge is present in the list and if it is already disabled."
+    chosen_edge = [(u, v, d) for u, v, d in graph.edges(data=True) if d.get("id") == edge_id]
+
+    if not chosen_edge:
+        raise IDNotFoundError(f"The chosen edge {edge_id} is not in the ID list.")
+
+    enabled_status = chosen_edge[0][2].get("enabled", None)
+
+    if enabled_status is False:
+        return False
+
+    return True
+
+
+def set_edge_enabled_status(graph: nx.Graph, edge_id: int, status: bool):
+    """
+    Enables or disables an edge by its ID.
+    Checks if the edge_id:
+    - is valid
+    - if it is already disabled (when prompted to be turned disabled).
+    """
+    for u, v, d in graph.edges(data=True):
+        if d.get("id") == edge_id:
+            if d.get("enabled", None) == status:
+                if status is False:
+                    raise EdgeAlreadyDisabledError(f"The chosen edge {edge_id} is already disabled.")
+            graph[u][v]["enabled"] = status
+            return
+    raise IDNotFoundError(f"The chosen edge {edge_id} is not in the ID list.")
 
 
 class GraphProcessor(nx.Graph):
@@ -213,15 +246,15 @@ class GraphProcessor(nx.Graph):
                     # which must become:
                     #  (0, 1), (1, 4)
                     while True:
-                        # try:
-                        popped_edge = edges.pop()
-                        # except IndexError:
-                        #     edges = []
-                        #     active_nodes = {tail}
-                        #     break
-                        # else:
-                        popped_head = tailhead(popped_edge)[1]
-                        active_nodes.remove(popped_head)
+                        try:
+                            popped_edge = edges.pop()
+                        except IndexError:
+                            edges = []
+                            active_nodes = {tail}
+                            break
+                        else:
+                            popped_head = tailhead(popped_edge)[1]
+                            active_nodes.remove(popped_head)
 
                         if edges:
                             last_head = tailhead(edges[-1])[1]
@@ -248,15 +281,6 @@ class GraphProcessor(nx.Graph):
             return False
 
         return True
-
-    def is_edge_enabled(self, edge_id):
-        """
-        Checks if a given edge is enabled or not.
-        """
-
-        chosen_edge = [(u, v, d) for u, v, d in self.edges(data=True) if d.get("id", None) == edge_id]
-        is_edge_enabled = chosen_edge[0][2].get("enabled", None)
-        return is_edge_enabled
 
     def find_downstream_vertices(self, edge_id: int) -> List[int]:
         """
@@ -352,3 +376,31 @@ class GraphProcessor(nx.Graph):
         Returns:
             A list of alternative edge ids.
         """
+
+        # find alternative edges
+        # put your implementation here
+
+        # copy graph (which can be edited)
+        # Set chosen edge to disabled -> Returns errors if edge is already disabled or not valid id
+        self_copy = copy.deepcopy(self)
+        set_edge_enabled_status(self_copy, disabled_edge_id, False)
+
+        valid_alternatives = []
+
+        # find currently disabled edges
+        for u, v, d in self.edges(data=True):
+            if d.get("enabled", None) == False:
+                candidate_edge_id = d.get("id", None)
+
+                # enable originally disabled edge
+                test_graph = copy.deepcopy(self_copy)
+                set_edge_enabled_status(test_graph, candidate_edge_id, True)
+
+                # check per if whole graph is accesible
+                # Since the graph is acyclic from the start, it will stay acyclic when enabling only one edge.
+                if not nx.is_connected(filter_disabled_edges(test_graph)):
+                    continue
+                    # raise GraphNotFullyConnectedError("The graph is not fully connected.")
+                valid_alternatives.append(candidate_edge_id)
+
+        return valid_alternatives
