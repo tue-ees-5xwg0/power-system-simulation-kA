@@ -305,7 +305,41 @@ class GraphProcessor(nx.Graph):
 
         Returns:
             A list of all downstream vertices.
+
         """
+
+        edge_ids = [data.get("id") for _, _, data in self.edges(data=True)]
+        check_contains_id(edge_ids, edge_id, "edge_id")
+
+        edge_data = None
+        edge_vertices = None
+        for u, v, data in self.edges(data=True):
+            if data.get("id") == edge_id:
+                edge_data = data
+                edge_vertices = (u, v)
+                break
+
+        if not edge_data.get("enabled", False):
+            return []
+
+        filtered_graph = filter_disabled_edges(self)
+        try:
+            bfs_tree = nx.bfs_tree(filtered_graph, self.source_vertex_id)
+        except nx.NetworkXError:
+            return []
+
+        u, v = edge_vertices
+        if bfs_tree.has_edge(u, v):
+            downstream_vertex = v
+        elif bfs_tree.has_edge(v, u):
+            downstream_vertex = u
+        else:
+            return []
+
+        subtree_nodes = list(nx.descendants(bfs_tree, downstream_vertex))
+        subtree_nodes.append(downstream_vertex)
+
+        return sorted(subtree_nodes)
 
     def find_alternative_edges(self, disabled_edge_id: int) -> List[int]:
         """
