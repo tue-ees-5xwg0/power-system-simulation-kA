@@ -284,14 +284,10 @@ class GraphProcessor(nx.Graph):
         """
 
         # put your implementation here
-        # Check if edge exists using existing helper function
+       
         edge_ids = [data.get('id') for _, _, data in self.edges(data=True)]
-        try:
-            check_contains_id(edge_ids, edge_id, "edge_id")
-        except IDNotFoundError:
-            raise IDNotFoundError(f"Edge ID {edge_id} not found")
+        check_contains_id(edge_ids, edge_id, "edge_id")
 
-        # Get edge data and vertices
         edge_data = None
         edge_vertices = None
         for u, v, data in self.edges(data=True):
@@ -300,43 +296,28 @@ class GraphProcessor(nx.Graph):
                 edge_vertices = (u, v)
                 break
 
-        # Return empty list if edge is disabled
         if not edge_data.get('enabled', False):
             return []
 
-        # Create subgraph with only enabled edges using existing helper function
         filtered_graph = filter_disabled_edges(self)
-        
-        # Check which vertex is downstream in the edge
-        u, v = edge_vertices
-        
-        # Get the BFS tree from source
         try:
             bfs_tree = nx.bfs_tree(filtered_graph, self.source_vertex_id)
         except nx.NetworkXError:
-            return []  # Source not in graph (shouldn't happen as init checks connectivity)
-        
-        # Determine which vertex of the edge is downstream
-        downstream_vertex = None
-        if v in bfs_tree.pred and bfs_tree.pred[v] == u:
+            return []
+
+        u, v = edge_vertices
+        if bfs_tree.has_edge(u, v):
             downstream_vertex = v
-        elif u in bfs_tree.pred and bfs_tree.pred[u] == v:
+        elif bfs_tree.has_edge(v, u):
             downstream_vertex = u
         else:
-            # Edge not in BFS tree (shouldn't happen in valid connected acyclic graph)
             return []
-        
-        # Get all nodes in the subtree rooted at downstream_vertex
-        subtree_nodes = set()
-        stack = [downstream_vertex]
-        while stack:
-            node = stack.pop()
-            subtree_nodes.add(node)
-            for child in bfs_tree.successors(node):
-                stack.append(child)
-        
+
+        subtree_nodes = list(nx.descendants(bfs_tree, downstream_vertex))
+        subtree_nodes.append(downstream_vertex)
+
         return sorted(subtree_nodes)
-    
+
     def find_alternative_edges(self, disabled_edge_id: int) -> List[int]:
         """
         Given an enabled edge, do the following analysis:
