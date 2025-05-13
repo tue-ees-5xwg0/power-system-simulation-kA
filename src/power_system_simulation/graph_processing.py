@@ -186,9 +186,9 @@ class GraphProcessor(nx.Graph):
         explored = set()
         cycle = []
         for start_node in self.nbunch_iter(self.source_vertex_id):
-            if start_node in explored:
-                # No loop is possible.
-                continue
+            # if start_node in explored:
+            #     # No loop is possible.
+            #     continue
 
             edges = []
             # All nodes seen in this iteration of edge_dfs
@@ -200,11 +200,11 @@ class GraphProcessor(nx.Graph):
             for edge in nx.edge_dfs(self, start_node, orientation):
                 # Determine if this edge is a continuation of the active path.
                 tail, head = tailhead(edge)
-                
+
                 # if head in explored:
-                    # Then we've already explored it. No loop is possible.
-                    # continue
-                
+                # Then we've already explored it. No loop is possible.
+                # continue
+
                 if previous_head is not None and tail != previous_head:
                     # This edge results from backtracking.
                     # Pop until we get a node whose head equals the current tail.
@@ -213,15 +213,15 @@ class GraphProcessor(nx.Graph):
                     # which must become:
                     #  (0, 1), (1, 4)
                     while True:
-                        try:
-                            popped_edge = edges.pop()
-                        except IndexError:
-                            edges = []
-                            active_nodes = {tail}
-                            break
-                        else:
-                            popped_head = tailhead(popped_edge)[1]
-                            active_nodes.remove(popped_head)
+                        # try:
+                        popped_edge = edges.pop()
+                        # except IndexError:
+                        #     edges = []
+                        #     active_nodes = {tail}
+                        #     break
+                        # else:
+                        popped_head = tailhead(popped_edge)[1]
+                        active_nodes.remove(popped_head)
 
                         if edges:
                             last_head = tailhead(edges[-1])[1]
@@ -282,7 +282,6 @@ class GraphProcessor(nx.Graph):
         Returns:
             A list of all downstream vertices.
         """
-        # put your implementation here
 
     def find_alternative_edges(self, disabled_edge_id: int) -> List[int]:
         """
@@ -319,21 +318,3 @@ class GraphProcessor(nx.Graph):
         Returns:
             A list of alternative edge ids.
         """
-        # put your implementation here
-
-        # disabled_edge_id should be a valid edge id
-        check = False
-        for edge_check in self.edge_ids:
-            if edge_check == self.edge_vertex_id:
-                check = True
-        if not check:
-            raise IDNotFoundError(f"The disabled_edge_id {disabled_edge_id} is a non-existent edge ID.")
-
-        # disabled_edge_id should be initially enabled
-
-        # find alternative edges:
-        # copy graph (which can be edited)
-        # find currently disabled edges
-        # disable input disabled_edge_id
-        # check per disabled edge (by enabling) if whole graph is accesible without creating a cycle
-        # output edges that give a true
