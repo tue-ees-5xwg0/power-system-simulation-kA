@@ -308,7 +308,7 @@ def test_find_downstream_vertices_normal_case():
 
 
 def test_find_downstream_vertices_disabled_case():
-    """ ""
+    """
     vertex_0 (source) --edge_1(enabled)-- vertex_2 --edge_9(enabled)-- vertex_10
                  |                               |
                  |                           edge_7(disabled)
@@ -334,7 +334,11 @@ def test_find_downstream_vertices_disabled_case():
         graph.find_downstream_vertices(2)
     assert output.value.args[0] == "The edge_id 2 is not in the ID list."
 
+    graph.source_vertix_id = 999  # invalid node
+    assert graph.find_downstream_vertices(7) == []
 
+ 
+    
 # def test_is_edge_enabled():
 #     """
 #     Placeholder test with a normal network. Should be turned into an actual test when the function has been made.

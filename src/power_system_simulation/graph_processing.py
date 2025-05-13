@@ -281,8 +281,8 @@ class GraphProcessor(nx.Graph):
 
         Returns:
             A list of all downstream vertices.
-        """
-
+        
+       """
         # put your implementation here
 
         edge_ids = [data.get("id") for _, _, data in self.edges(data=True)]
@@ -317,7 +317,7 @@ class GraphProcessor(nx.Graph):
         subtree_nodes.append(downstream_vertex)
 
         return sorted(subtree_nodes)
-
+     
     def find_alternative_edges(self, disabled_edge_id: int) -> List[int]:
         """
         Given an enabled edge, do the following analysis:
