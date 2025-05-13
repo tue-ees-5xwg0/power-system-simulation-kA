@@ -275,6 +275,7 @@ def test_graph_processor_init_err7_graph_contains_cycle_disabled_error():
 
     assert gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
 
+
 def test_find_downstream_vertices_normal_case():
     """
     Test normal case where edge is enabled and has downstream vertices
@@ -292,21 +293,22 @@ def test_find_downstream_vertices_normal_case():
     source_vertex_id = 1
 
     graph = gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
-    
+
     # Test edge 1 (1-2) - downstream should be 2,3,4,5
     assert sorted(graph.find_downstream_vertices(1)) == [2, 3, 4, 5]
-    
+
     # Test edge 2 (2-3) - downstream should be 3
     assert graph.find_downstream_vertices(2) == [3]
-    
+
     # Test edge 3 (2-4) - downstream should be 4,5
     assert sorted(graph.find_downstream_vertices(3)) == [4, 5]
-    
+
     # Test edge 4 (4-5) - downstream should be 5
     assert graph.find_downstream_vertices(4) == [5]
 
+
 def test_find_downstream_vertices_disabled_case():
-    """""
+    """ ""
     vertex_0 (source) --edge_1(enabled)-- vertex_2 --edge_9(enabled)-- vertex_10
                  |                               |
                  |                           edge_7(disabled)
@@ -327,11 +329,11 @@ def test_find_downstream_vertices_disabled_case():
     assert sorted(graph.find_downstream_vertices(1)) == [2, 10]
     assert graph.find_downstream_vertices(9) == [10]
     assert graph.find_downstream_vertices(7) == []
-    
+
     with pytest.raises(gp.IDNotFoundError) as output:
         graph.find_downstream_vertices(2)
     assert output.value.args[0] == "The edge_id 2 is not in the ID list."
-    
+
 
 # def test_is_edge_enabled():
 #     """

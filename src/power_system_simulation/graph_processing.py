@@ -200,11 +200,11 @@ class GraphProcessor(nx.Graph):
             for edge in nx.edge_dfs(self, start_node, orientation):
                 # Determine if this edge is a continuation of the active path.
                 tail, head = tailhead(edge)
-                
+
                 # if head in explored:
-                    # Then we've already explored it. No loop is possible.
-                    # continue
-                
+                # Then we've already explored it. No loop is possible.
+                # continue
+
                 if previous_head is not None and tail != previous_head:
                     # This edge results from backtracking.
                     # Pop until we get a node whose head equals the current tail.
@@ -284,19 +284,19 @@ class GraphProcessor(nx.Graph):
         """
 
         # put your implementation here
-       
-        edge_ids = [data.get('id') for _, _, data in self.edges(data=True)]
+
+        edge_ids = [data.get("id") for _, _, data in self.edges(data=True)]
         check_contains_id(edge_ids, edge_id, "edge_id")
 
         edge_data = None
         edge_vertices = None
         for u, v, data in self.edges(data=True):
-            if data.get('id') == edge_id:
+            if data.get("id") == edge_id:
                 edge_data = data
                 edge_vertices = (u, v)
                 break
 
-        if not edge_data.get('enabled', False):
+        if not edge_data.get("enabled", False):
             return []
 
         filtered_graph = filter_disabled_edges(self)
