@@ -286,7 +286,7 @@ def test_find_downstream_vertices_normal_case():
             |
             4--[4]--5
     """
-    
+
     vertex_ids = [1, 2, 3, 4, 5]
     edge_ids = [1, 2, 3, 4]
     edge_vertex_id_pairs = [(1, 2), (2, 3), (2, 4), (4, 5)]

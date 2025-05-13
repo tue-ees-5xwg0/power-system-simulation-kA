@@ -340,7 +340,7 @@ class GraphProcessor(nx.Graph):
         subtree_nodes.append(downstream_vertex)
 
         return sorted(subtree_nodes)
-     
+
     def find_alternative_edges(self, disabled_edge_id: int) -> List[int]:
         """
         Given an enabled edge, do the following analysis:
