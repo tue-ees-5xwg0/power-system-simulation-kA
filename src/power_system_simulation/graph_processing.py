@@ -362,14 +362,11 @@ class GraphProcessor(nx.Graph):
                 test_graph = copy.deepcopy(self_copy)
                 set_edge_enabled_status(test_graph, candidate_edge_id, True)
 
-                # check per if whole graph is accesible without creating a cycle
+                # check per if whole graph is accesible
+                # Since the graph is acyclic from the start, it will stay acyclic when enabling only one edge.
                 if not nx.is_connected(filter_disabled_edges(test_graph)):
                     continue
                     # raise GraphNotFullyConnectedError("The graph is not fully connected.")
-                if filter_disabled_edges(test_graph).is_cyclic():
-                    continue
-                    # raise GraphCycleError("The graph contains a cycle.")
-
                 valid_alternatives.append(candidate_edge_id)
 
         return valid_alternatives
