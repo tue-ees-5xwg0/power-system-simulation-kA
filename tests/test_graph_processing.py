@@ -413,3 +413,4 @@ def test_find_alternative_edges_err1():
     with pytest.raises(gp.IDNotFoundError) as output:
         test.find_alternative_edges(10)
     assert output.value.args[0] == "The chosen edge 10 is not in the ID list."
+

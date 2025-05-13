@@ -219,9 +219,9 @@ class GraphProcessor(nx.Graph):
         explored = set()
         cycle = []
         for start_node in self.nbunch_iter(self.source_vertex_id):
-            if start_node in explored:
-                # No loop is possible.
-                continue
+            # if start_node in explored:
+            #     # No loop is possible.
+            #     continue
 
             edges = []
             # All nodes seen in this iteration of edge_dfs
@@ -246,15 +246,15 @@ class GraphProcessor(nx.Graph):
                     # which must become:
                     #  (0, 1), (1, 4)
                     while True:
-                        try:
-                            popped_edge = edges.pop()
-                        except IndexError:
-                            edges = []
-                            active_nodes = {tail}
-                            break
-                        else:
-                            popped_head = tailhead(popped_edge)[1]
-                            active_nodes.remove(popped_head)
+                        # try:
+                        popped_edge = edges.pop()
+                        # except IndexError:
+                        #     edges = []
+                        #     active_nodes = {tail}
+                        #     break
+                        # else:
+                        popped_head = tailhead(popped_edge)[1]
+                        active_nodes.remove(popped_head)
 
                         if edges:
                             last_head = tailhead(edges[-1])[1]
@@ -306,7 +306,6 @@ class GraphProcessor(nx.Graph):
         Returns:
             A list of all downstream vertices.
         """
-        # put your implementation here
 
     def find_alternative_edges(self, disabled_edge_id: int) -> List[int]:
         """
@@ -343,6 +342,7 @@ class GraphProcessor(nx.Graph):
         Returns:
             A list of alternative edge ids.
         """
+
         # find alternative edges
         # put your implementation here
 
