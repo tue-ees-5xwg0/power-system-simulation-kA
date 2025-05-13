@@ -2,11 +2,11 @@
 This is a file containing the GraphProcessor object class, and supplemental funcitons.
 """
 
+import copy
 from typing import List, Tuple
 
 import networkx as nx
 
-import copy
 
 class IDNotFoundError(Exception):
     "Error when an ID in a list cannot be found."
@@ -99,24 +99,26 @@ def filter_disabled_edges(graph):
 
     return GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, graph.source_vertex_id, True)
 
-def is_edge_enabled(graph: nx.Graph, edge_id: int) -> bool :
+
+def is_edge_enabled(graph: nx.Graph, edge_id: int) -> bool:
     "Checks if the edge is present in the list and if it is already disabled."
-    chosen_edge = [(u, v, d) for u, v, d in graph.edges(data=True) if d.get('id') == edge_id]
+    chosen_edge = [(u, v, d) for u, v, d in graph.edges(data=True) if d.get("id") == edge_id]
 
     if not chosen_edge:
         raise IDNotFoundError(f"The chosen edge {edge_id} is not in the ID list.")
-    
-    enabled_status = chosen_edge[0][2].get('enabled', None)
+
+    enabled_status = chosen_edge[0][2].get("enabled", None)
 
     if enabled_status is False:
         return False
-    
+
     return True
+
 
 def set_edge_enabled_status(graph: nx.Graph, edge_id: int, status: bool):
     """
     Enables or disables an edge by its ID.
-    Checks if the edge_id: 
+    Checks if the edge_id:
     - is valid
     - if it is already disabled (when prompted to be turned disabled).
     """
@@ -128,6 +130,7 @@ def set_edge_enabled_status(graph: nx.Graph, edge_id: int, status: bool):
             graph[u][v]["enabled"] = status
             return
     raise IDNotFoundError(f"The chosen edge {edge_id} is not in the ID list.")
+
 
 class GraphProcessor(nx.Graph):
     """
@@ -230,11 +233,11 @@ class GraphProcessor(nx.Graph):
             for edge in nx.edge_dfs(self, start_node, orientation):
                 # Determine if this edge is a continuation of the active path.
                 tail, head = tailhead(edge)
-                
+
                 # if head in explored:
-                    # Then we've already explored it. No loop is possible.
-                    # continue
-                
+                # Then we've already explored it. No loop is possible.
+                # continue
+
                 if previous_head is not None and tail != previous_head:
                     # This edge results from backtracking.
                     # Pop until we get a node whose head equals the current tail.
@@ -346,14 +349,14 @@ class GraphProcessor(nx.Graph):
         # copy graph (which can be edited)
         # Set chosen edge to disabled -> Returns errors if edge is already disabled or not valid id
         self_copy = copy.deepcopy(self)
-        set_edge_enabled_status(self_copy, disabled_edge_id, False) 
+        set_edge_enabled_status(self_copy, disabled_edge_id, False)
 
         valid_alternatives = []
 
         # find currently disabled edges
         for u, v, d in self.edges(data=True):
-            if d.get('enabled', None) == False:
-                candidate_edge_id = d.get('id', None)
+            if d.get("enabled", None) == False:
+                candidate_edge_id = d.get("id", None)
 
                 # enable originally disabled edge
                 test_graph = copy.deepcopy(self_copy)
@@ -362,16 +365,11 @@ class GraphProcessor(nx.Graph):
                 # check per if whole graph is accesible without creating a cycle
                 if not nx.is_connected(filter_disabled_edges(test_graph)):
                     continue
-                    #raise GraphNotFullyConnectedError("The graph is not fully connected.")
+                    # raise GraphNotFullyConnectedError("The graph is not fully connected.")
                 if filter_disabled_edges(test_graph).is_cyclic():
                     continue
-                    #raise GraphCycleError("The graph contains a cycle.")
-                
+                    # raise GraphCycleError("The graph contains a cycle.")
+
                 valid_alternatives.append(candidate_edge_id)
 
         return valid_alternatives
-        
-        
-
-
-        
