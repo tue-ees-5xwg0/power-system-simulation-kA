@@ -101,7 +101,10 @@ def filter_disabled_edges(graph):
 
 
 def is_edge_enabled(graph: nx.Graph, edge_id: int) -> bool:
-    "Checks if the edge is present in the list and if it is already disabled."
+    """
+    Checks if the edge is present in the list and if it is already disabled.
+    """
+
     chosen_edge = [(u, v, d) for u, v, d in graph.edges(data=True) if d.get("id") == edge_id]
 
     if not chosen_edge:
@@ -122,6 +125,7 @@ def set_edge_enabled_status(graph: nx.Graph, edge_id: int, status: bool):
     - is valid
     - if it is already disabled (when prompted to be turned disabled).
     """
+
     for u, v, d in graph.edges(data=True):
         if d.get("id") == edge_id:
             if d.get("enabled", None) == status:
@@ -134,7 +138,8 @@ def set_edge_enabled_status(graph: nx.Graph, edge_id: int, status: bool):
 
 class GraphProcessor(nx.Graph):
     """
-    This class is an extension of the NetworkX undirected graph. It functions as a processor for network graphs.
+    This class is an extension of the NetworkX undirected graph. It functions as a processor for
+    network graphs.
     """
 
     def __init__(
