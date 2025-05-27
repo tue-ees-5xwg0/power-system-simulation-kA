@@ -14,7 +14,7 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 # add dependencies of your core package, check the license first!
-dependencies = ['NetworkX']
+dependencies = ['NetworkX','pandas','numpy','power_grid_model']
 version = "0.1"
 
 [project.optional-dependencies]
@@ -23,7 +23,8 @@ dev = [
   'black',
   'isort',
   'pylint',
-  'pytest-cov'
+  'pytest-cov',
+  'pylint-per-file-ignores'
 ]
 
 # add more dependencies for running the examples
@@ -50,8 +51,18 @@ line_length = 120
 
 [tool.pylint.main]
 # Specify a score threshold under which the program will exit with error.
-fail-under = 8
+fail-under = 10
 max-line-length = 120
+
+[tool.pylint.MASTER]
+load-plugins=[
+    "pylint_per_file_ignores"
+]
+
+[tool.pylint.'MESSAGES CONTROL']
+per-file-ignores = [
+    "graph_processing.py:R0913,R0914,R0917,R1702,W1114,W0612"
+]
 
 # Minimum Python version to use for version dependent checks. Will default to the
 # version used to run pylint.

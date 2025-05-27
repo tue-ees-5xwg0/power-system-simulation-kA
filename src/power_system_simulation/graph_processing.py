@@ -1,5 +1,5 @@
 """
-This is a file containing the GraphProcessor object class, and supplemental funcitons.
+This is a file containing the GraphProcessor object class, and supplemental functions.
 """
 
 import copy
@@ -32,54 +32,6 @@ class EdgeAlreadyDisabledError(Exception):
     "Error when trying to disable an edge that is already disabled."
 
 
-def check_duplicate_ids(ids: List[int], list_name):
-    """
-    Check for duplicate ids in a list that should have unique ids
-    """
-
-    for i_origin, id_origin in enumerate(ids):
-        for i_check, id_check in enumerate(ids):
-            if i_origin != i_check and id_origin == id_check:
-                raise IDNotUniqueError(
-                    f"Input list {list_name} contains a duplicate at index {i_origin} and {i_check}."
-                )
-
-
-def check_same_length(list1, list2, list1_name, list2_name):
-    """
-    Check if two lists have the same length. This is useful when one list maps to the entries in another list.
-    """
-
-    if len(list1) != len(list2):
-        raise InputLengthDoesNotMatchError(f"The length of {list1_name} does not match the length of {list2_name}.")
-
-
-def check_contains_vertex_ids(vertex_ids: List[int], edge_vertex_id_pairs: List[Tuple[int, int]]):
-    """
-    Check if all vertex_ids int the edge_vertex_id_pairs list map to an existing vertex_id.
-    """
-
-    for pair in edge_vertex_id_pairs:
-        for vertex_origin in pair:
-            check = False
-            for vertex_check in vertex_ids:
-                if vertex_origin == vertex_check:
-                    check = True
-            if not check:
-                raise IDNotFoundError(f"edge_vertex_id_pairs contains a non-existent vertex ID {vertex_origin}.")
-
-
-def check_contains_id(ids: List[int], id_check: int, item_name):
-    """
-    Checks if a specific ID is present in a list.
-    """
-
-    for id_origin in ids:
-        if id_origin == id_check:
-            return
-    raise IDNotFoundError(f"The {item_name} {id_check} is not in the ID list.")
-
-
 def filter_disabled_edges(graph):
     """
     Returs a GraphProcessor with all disabled edges removed.
@@ -100,21 +52,6 @@ def filter_disabled_edges(graph):
     return GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, graph.source_vertex_id, True)
 
 
-def is_edge_enabled(graph: nx.Graph, edge_id: int) -> bool:
-    "Checks if the edge is present in the list and if it is already disabled."
-    chosen_edge = [(u, v, d) for u, v, d in graph.edges(data=True) if d.get("id") == edge_id]
-
-    if not chosen_edge:
-        raise IDNotFoundError(f"The chosen edge {edge_id} is not in the ID list.")
-
-    enabled_status = chosen_edge[0][2].get("enabled", None)
-
-    if enabled_status is False:
-        return False
-
-    return True
-
-
 def set_edge_enabled_status(graph: nx.Graph, edge_id: int, status: bool):
     """
     Enables or disables an edge by its ID.
@@ -122,6 +59,7 @@ def set_edge_enabled_status(graph: nx.Graph, edge_id: int, status: bool):
     - is valid
     - if it is already disabled (when prompted to be turned disabled).
     """
+
     for u, v, d in graph.edges(data=True):
         if d.get("id") == edge_id:
             if d.get("enabled", None) == status:
@@ -134,7 +72,8 @@ def set_edge_enabled_status(graph: nx.Graph, edge_id: int, status: bool):
 
 class GraphProcessor(nx.Graph):
     """
-    This class is an extension of the NetworkX undirected graph. It functions as a processor for network graphs.
+    This class is an extension of the NetworkX undirected graph. It functions as a processor for
+    network graphs.
     """
 
     def __init__(
@@ -151,20 +90,28 @@ class GraphProcessor(nx.Graph):
         super().__init__()
 
         # 1 check vertex_ids and edge_ids to be unique
-        check_duplicate_ids(vertex_ids, "vertex_ids")
-        check_duplicate_ids(edge_ids, "edge_ids")
+        if self._has_duplicate_ids(vertex_ids):
+            raise IDNotUniqueError("Input list vertex_ids contains a duplicate id.")
+        if self._has_duplicate_ids(edge_ids):
+            raise IDNotUniqueError("Input list edge_ids contains a duplicate id.")
 
         # 2 check edge_vertex_id_pairs is the same length as edge_ids
-        check_same_length(edge_ids, edge_vertex_id_pairs, "edge_ids", "edge_vertex_id_pairs")
+        if not self._has_same_length(edge_ids, edge_vertex_id_pairs):
+            raise InputLengthDoesNotMatchError(
+                "The length of edge_ids does not match the length of edge_vertex_id_pairs."
+            )
 
         # 3 check edge_vertex_id_pairs has valid vertex ids
-        check_contains_vertex_ids(vertex_ids, edge_vertex_id_pairs)
+        if not self._has_vertex_ids(vertex_ids, edge_vertex_id_pairs):
+            raise IDNotFoundError("edge_vertex_id_pairs contains a non-existent vertex ID.")
 
         # 4 check edge_enabled has the same length as edge_ids
-        check_same_length(edge_ids, edge_enabled, "edge_ids", "edge_enabled")
+        if not self._has_same_length(edge_ids, edge_enabled):
+            raise InputLengthDoesNotMatchError("The length of edge_ids does not match the length of edge_enabled.")
 
         # 5 source_vertex_id should be a valid vertex id
-        check_contains_id(vertex_ids, source_vertex_id, "source_vertex_id")
+        if not self._has_id(vertex_ids, source_vertex_id):
+            raise IDNotFoundError("The provided source_vertex_id is not in the vertex_ids list.")
 
         # create nx graph after input checks
         self.add_nodes_from(vertex_ids)
@@ -183,14 +130,50 @@ class GraphProcessor(nx.Graph):
             if filter_disabled_edges(self).is_cyclic():
                 raise GraphCycleError("The graph contains a cycle.")
 
-    # def has_disabled_edges(self) -> bool:
-    #     """
-    #     Checks if the object has any disabled edges.
-    #     """
+    def _has_duplicate_ids(self, ids: List[int]):
+        """
+        Check for duplicate ids in a list that should have unique ids
+        """
 
-    #     if len([(u, v, d) for u, v, d in self.edges(data=True) if d.get("enabled", None) is False]) == 0:
-    #         return False
-    #     return True
+        for i_origin, id_origin in enumerate(ids):
+            for i_check, id_check in enumerate(ids):
+                if i_origin != i_check and id_origin == id_check:
+                    return True
+        return False
+
+    def _has_same_length(self, list1, list2):
+        """
+        Check if two lists have the same length. This is useful when one list maps to the entries in another list.
+        """
+
+        if len(list1) != len(list2):
+            return False
+        return True
+
+    def _has_vertex_ids(self, vertex_ids: List[int], edge_vertex_id_pairs: List[Tuple[int, int]]):
+        """
+        Check if all vertex_ids int the edge_vertex_id_pairs list map to an existing vertex_id.
+        """
+
+        for pair in edge_vertex_id_pairs:
+            for vertex_origin in pair:
+                check = False
+                for vertex_check in vertex_ids:
+                    if vertex_origin == vertex_check:
+                        check = True
+                if not check:
+                    return False
+        return True
+
+    def _has_id(self, ids: List[int], id_check: int):
+        """
+        Checks if a specific ID is present in a list.
+        """
+
+        for id_origin in ids:
+            if id_origin == id_check:
+                return True
+        return False
 
     def is_cyclic(self, orientation=None) -> bool:
         """
@@ -203,18 +186,6 @@ class GraphProcessor(nx.Graph):
 
             def tailhead(edge):
                 return edge[:2]
-
-        # elif orientation == "reverse":
-
-        #     def tailhead(edge):
-        #         return edge[1], edge[0]
-
-        # elif orientation == "ignore":
-
-        #     def tailhead(edge):
-        #         if edge[-1] == "reverse":
-        #             return edge[1], edge[0]
-        #         return edge[:2]
 
         explored = set()
         cycle = []
@@ -282,6 +253,23 @@ class GraphProcessor(nx.Graph):
 
         return True
 
+    def is_edge_enabled(self, edge_id: int) -> bool:
+        """
+        Checks if the edge is present in the list and if it is already disabled.
+        """
+
+        chosen_edge = [(u, v, d) for u, v, d in self.edges(data=True) if d.get("id") == edge_id]
+
+        if not chosen_edge:
+            raise IDNotFoundError(f"The chosen edge {edge_id} is not in the ID list.")
+
+        enabled_status = chosen_edge[0][2].get("enabled", None)
+
+        if enabled_status is False:
+            return False
+
+        return True
+
     def find_downstream_vertices(self, edge_id: int) -> List[int]:
         """
         Given an edge id, return all the vertices which are in the downstream of the edge,
@@ -309,7 +297,8 @@ class GraphProcessor(nx.Graph):
         """
 
         edge_ids = [data.get("id") for _, _, data in self.edges(data=True)]
-        check_contains_id(edge_ids, edge_id, "edge_id")
+        if not self._has_id(edge_ids, edge_id):
+            raise IDNotFoundError("The provided ID is not in the edge_ids list.")
 
         edge_data = None
         edge_vertices = None
@@ -377,9 +366,6 @@ class GraphProcessor(nx.Graph):
             A list of alternative edge ids.
         """
 
-        # find alternative edges
-        # put your implementation here
-
         # copy graph (which can be edited)
         # Set chosen edge to disabled -> Returns errors if edge is already disabled or not valid id
         self_copy = copy.deepcopy(self)
@@ -389,7 +375,7 @@ class GraphProcessor(nx.Graph):
 
         # find currently disabled edges
         for u, v, d in self.edges(data=True):
-            if d.get("enabled", None) == False:
+            if not d.get("enabled", None):
                 candidate_edge_id = d.get("id", None)
 
                 # enable originally disabled edge
