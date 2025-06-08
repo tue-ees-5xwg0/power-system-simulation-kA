@@ -58,7 +58,9 @@ class TimeSeriesPowerFlow:
         max_nodes = [node_ids[i] for i in max_indices]
         min_nodes = [node_ids[i] for i in min_indices]
 
-        pass
+        together_df = pd.DataFrame({"max_voltage_pu": max_voltage, "max_voltage_node": max_nodes, "min_voltage_pu": min_voltage, "min_voltage_node": min_nodes}, index=timestamps)
+
+        return together_df
 
     def get_line_summary(self):
         # TODO: Compute energy loss (with trapezoidal rule) and max/min loading for each line
