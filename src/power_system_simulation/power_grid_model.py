@@ -43,6 +43,12 @@ class TimeSeriesPowerFlow:
 
     def get_voltage_summary(self):
         # TODO: Aggregate max/min voltage and corresponding node IDs for each timestamp
+        if self.batch_output is None:
+            raise RuntimeError("No Results Yet.")
+        voltage_results = self.batch_output["voltage"]
+        node_ids = self.model.get_component_ids(ComponentType.node)
+        timestamps = self.p_profile.index
+        
         pass
 
     def get_line_summary(self):
