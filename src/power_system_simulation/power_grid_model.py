@@ -17,10 +17,13 @@ from power_grid_model.utils import json_deserialize, json_serialize
 from power_grid_model.validation import assert_valid_batch_data, assert_valid_input_data
 
 
+
+class NoValidOutputDataError(Exception):
+    """Raised when there is no output from the power_grid_model to work with."""
+
 class LoadProfileMismatchError(Exception):
     """Raised when the active and reactive load profiles do not align."""
 
-    pass
 
 
 class TimeSeriesPowerFlow:
@@ -72,6 +75,25 @@ class TimeSeriesPowerFlow:
         # TODO: Aggregate max/min voltage and corresponding node IDs for each timestamp
         pass
 
-    def get_line_summary(self):
-        # TODO: Compute energy loss (with trapezoidal rule) and max/min loading for each line
-        pass
+    def _get_line_summary(self):
+
+        try:
+            lines = self.batch_output['line']
+        except TypeError:
+            raise NoValidOutputDataError("No output data from the power-grid-model. Try running the model first using the run() function.") 
+        except KeyError:
+            raise NoValidOutputDataError("The output from the power-grid-model does not contain a line table. Please check the settings of the model and try re-running it.")
+        except:
+            raise Exception("An unknow error occurred while trying to access the output of the power-grid-model.")
+        
+        output = pd.DataFrame({'Line ID': lines[0]['id']})
+
+        # calculate total power loss per line
+        s_from = lines['s_from']
+        s_to = lines['s_to']   
+        p_loss = np.abs(s_from - s_to)
+
+        hours_since_start = (self.p_profile.index - self.p_profile.index[0]).total_seconds() / 3600 # get the timestamps in terms of hours (float) for integration of power over time
+        output['energy_loss'] = np.trapezoid(p_loss, x=hours_since_start, axis=0) / 1000 # calculate the energy loss over time using trapezoidal integratian in kWh
+
+        return output

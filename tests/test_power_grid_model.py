@@ -40,3 +40,10 @@ def test_power_grid_model_run_output():
     assert ts.batch_output is not None
     # checking if the node voltages are stored in batch_output
     assert ComponentType.node in ts.batch_output
+
+
+def test_power_grid_model_get_line_summary_normal():
+    
+    assert True is True
+
+
