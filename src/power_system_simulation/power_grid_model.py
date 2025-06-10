@@ -5,8 +5,12 @@ import pandas as pd
 from power_grid_model import LoadGenType, ComponentType, DatasetType, ComponentAttributeFilterOptions
 from power_grid_model import PowerGridModel, CalculationMethod, CalculationType
 from power_grid_model import initialize_array, attribute_dtype
-from power_grid_model.utils import assert_valid_batch_data, ValidationException
+from power_grid_model.validation import assert_valid_input_data, assert_valid_batch_data
 from power_grid_model.utils import json_deserialize, json_serialize
+
+class LoadProfileMismatchError(Exception):
+    """Raised when the active and reactive load profiles do not align."""
+    pass
 
 class TimeSeriesPowerFlow:
     def __init__(
@@ -18,7 +22,7 @@ class TimeSeriesPowerFlow:
 
         # Load grid 
         with open(pgm_path, "r") as file:
-            self.grid_data = json_deserialize(json.load(file))
+            self.grid_data = json_deserialize(file.read())
 
         # Load profile data
         self.p_profile = pd.read_parquet(p_path)
@@ -26,9 +30,9 @@ class TimeSeriesPowerFlow:
 
         # Validate profiles
         if not self.p_profile.index.equals(self.q_profile.index):
-            raise ValueError("Timestamps do not match between p and q profiles.")
+            raise LoadProfileMismatchError("Timestamps do not match between p and q profiles.")
         if not self.p_profile.columns.equals(self.q_profile.columns):
-            raise ValueError("Load IDs do not match between p and q profiles.")
+            raise LoadProfileMismatchError("Load IDs do not match between p and q profiles.")
 
         # Create model
         self.model = PowerGridModel(self.grid_data)
@@ -36,11 +40,26 @@ class TimeSeriesPowerFlow:
         # Placeholder for batch output
         self.batch_output = None
 
-    def run(self, method):
+    def run(self):
         # TODO: Create update_data using initialize_array and the profiles
         # TODO: Validate batch data and run power flow calculation
-        pass
-
+        num_time_stamps, num_sym_loads = self.p_profile.shape
+        
+        self.update_sym_load = initialize_array(DatasetType.update, ComponentType.sym_load, (num_time_stamps, num_sym_loads))
+        self.update_sym_load["id"] = [self.p_profile.columns.tolist()]
+        self.update_sym_load["p_specified"] = self.p_profile
+        self.update_sym_load["q_specified"] = self.q_profile
+        
+        self.time_series_mutation = {ComponentType.sym_load: self.update_sym_load}
+        
+        self.batch_output = self.model.calculate_power_flow(
+            update_data=self.time_series_mutation,
+            symmetric=True, 
+            error_tolerance=1e-8, 
+            max_iterations=20, 
+            calculation_method=CalculationMethod.newton_raphson
+        )
+        
     def get_voltage_summary(self):
         # TODO: Aggregate max/min voltage and corresponding node IDs for each timestamp
         if self.batch_output is None:
