@@ -3,6 +3,7 @@ from contextlib import nullcontext as does_not_raise
 import pandas as pd
 import pytest
 from power_grid_model import ComponentType
+from test_utilities import compare_pandas_dataframes_fp
 
 from power_system_simulation.power_grid_model import LoadProfileMismatchError, TimeSeriesPowerFlow
 
@@ -63,3 +64,7 @@ def test_power_grid_model_get_line_summary():
     # test after running power model
     ts.run()
     assert ts.line_summary is not None
+    
+    # compare dataframe to a reference dataframe
+    test_results = compare_pandas_dataframes_fp(ts.line_summary, pd.read_csv(line_summary_small_path, index_col=0), ['max_loading', 'min_loading'])
+    assert test_results[0]
