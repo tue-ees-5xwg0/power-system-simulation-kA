@@ -17,13 +17,12 @@ from power_grid_model.utils import json_deserialize, json_serialize
 from power_grid_model.validation import assert_valid_batch_data, assert_valid_input_data
 
 
-
 class NoValidOutputDataError(Exception):
     """Raised when there is no output from the power_grid_model to work with."""
 
+
 class LoadProfileMismatchError(Exception):
     """Raised when the active and reactive load profiles do not align."""
-
 
 
 class TimeSeriesPowerFlow:
@@ -73,7 +72,6 @@ class TimeSeriesPowerFlow:
         )
 
         self.line_summary = self._get_line_summary()
-        
 
     def get_voltage_summary(self):
         # TODO: Aggregate max/min voltage and corresponding node IDs for each timestamp
@@ -81,36 +79,40 @@ class TimeSeriesPowerFlow:
 
     def _get_line_summary(self):
 
-        lines = self.batch_output['line'] 
-        output = pd.DataFrame(index=lines[0]['id'])
+        lines = self.batch_output["line"]
+        output = pd.DataFrame(index=lines[0]["id"])
 
         # calculate total power loss per line
-        s_from = lines['s_from']
-        s_to = lines['s_to']   
+        s_from = lines["s_from"]
+        s_to = lines["s_to"]
         p_loss = np.abs(s_from - s_to)
 
-        hours_since_start = (self.p_profile.index - self.p_profile.index[0]).total_seconds() / 3600 # get the timestamps in terms of hours (float) for integration of power over time
-        output['energy_loss'] = np.trapezoid(p_loss, x=hours_since_start, axis=0) / 1000 # calculate the energy loss over time using trapezoidal integratian in kWh
+        hours_since_start = (
+            self.p_profile.index - self.p_profile.index[0]
+        ).total_seconds() / 3600  # get the timestamps in terms of hours (float) for integration of power over time
+        output["energy_loss"] = (
+            np.trapezoid(p_loss, x=hours_since_start, axis=0) / 1000
+        )  # calculate the energy loss over time using trapezoidal integratian in kWh
 
         # determine maximum and minimum loading per line
-        lines_swapped = lines.swapaxes(0,1)
+        lines_swapped = lines.swapaxes(0, 1)
         temp_max_timestamp = []
         temp_max_value = []
         temp_min_timestamp = []
         temp_min_value = []
 
         for i, line in enumerate(lines_swapped):
-            i_max = line['loading'].argmax()
-            temp_max_value.append(line[i_max]['loading'])
+            i_max = line["loading"].argmax()
+            temp_max_value.append(line[i_max]["loading"])
             temp_max_timestamp.append(self.p_profile.index[i_max])
-            
-            i_min = line['loading'].argmin()
-            temp_min_value.append(line[i_min]['loading'])
+
+            i_min = line["loading"].argmin()
+            temp_min_value.append(line[i_min]["loading"])
             temp_min_timestamp.append(self.p_profile.index[i_min])
-            
-        output['max_loading_timestamp'] = temp_max_timestamp
-        output['max_loading'] = temp_max_value  
-        output['min_loading_timestamp'] = temp_min_timestamp
-        output['min_loading'] = temp_min_value      
+
+        output["max_loading_timestamp"] = temp_max_timestamp
+        output["max_loading"] = temp_max_value
+        output["min_loading_timestamp"] = temp_min_timestamp
+        output["min_loading"] = temp_min_value
 
         return output
