@@ -46,8 +46,9 @@ class TimeSeriesPowerFlow:
         # Create model
         self.model = PowerGridModel(self.grid_data)
 
-        # Placeholder for batch output
+        # Placeholder for batch output and summaries
         self.batch_output = None
+        self.line_summary = None
 
     def run(self):
         # TODO: Create update_data using initialize_array and the profiles
@@ -71,21 +72,16 @@ class TimeSeriesPowerFlow:
             calculation_method=CalculationMethod.newton_raphson,
         )
 
+        self.line_summary = self._get_line_summary()
+        
+
     def get_voltage_summary(self):
         # TODO: Aggregate max/min voltage and corresponding node IDs for each timestamp
         pass
 
     def _get_line_summary(self):
 
-        try:
-            lines = self.batch_output['line']
-        except TypeError:
-            raise NoValidOutputDataError("No output data from the power-grid-model. Try running the model first using the run() function.") 
-        except KeyError:
-            raise NoValidOutputDataError("The output from the power-grid-model does not contain a line table. Please check the settings of the model and try re-running it.")
-        except:
-            raise Exception("An unknow error occurred while trying to access the output of the power-grid-model.")
-        
+        lines = self.batch_output['line'] 
         output = pd.DataFrame(index=lines[0]['id'])
 
         # calculate total power loss per line
