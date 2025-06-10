@@ -86,7 +86,7 @@ class TimeSeriesPowerFlow:
         except:
             raise Exception("An unknow error occurred while trying to access the output of the power-grid-model.")
         
-        output = pd.DataFrame({'Line ID': lines[0]['id']})
+        output = pd.DataFrame(index=lines[0]['id'])
 
         # calculate total power loss per line
         s_from = lines['s_from']
@@ -95,5 +95,26 @@ class TimeSeriesPowerFlow:
 
         hours_since_start = (self.p_profile.index - self.p_profile.index[0]).total_seconds() / 3600 # get the timestamps in terms of hours (float) for integration of power over time
         output['energy_loss'] = np.trapezoid(p_loss, x=hours_since_start, axis=0) / 1000 # calculate the energy loss over time using trapezoidal integratian in kWh
+
+        # determine maximum and minimum loading per line
+        lines_swapped = lines.swapaxes(0,1)
+        temp_max_timestamp = []
+        temp_max_value = []
+        temp_min_timestamp = []
+        temp_min_value = []
+
+        for i, line in enumerate(lines_swapped):
+            i_max = line['loading'].argmax()
+            temp_max_value.append(line[i_max]['loading'])
+            temp_max_timestamp.append(self.p_profile.index[i_max])
+            
+            i_min = line['loading'].argmin()
+            temp_min_value.append(line[i_min]['loading'])
+            temp_min_timestamp.append(self.p_profile.index[i_min])
+            
+        output['max_loading_timestamp'] = temp_max_timestamp
+        output['max_loading'] = temp_max_value  
+        output['min_loading_timestamp'] = temp_min_timestamp
+        output['min_loading'] = temp_min_value      
 
         return output
