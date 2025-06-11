@@ -75,7 +75,24 @@ class TimeSeriesPowerFlow:
 
     def get_voltage_summary(self):
         # TODO: Aggregate max/min voltage and corresponding node IDs for each timestamp
-        pass
+        if self.batch_output is None:
+            raise RuntimeError("No Results Yet.")
+        voltage_results = self.batch_output["voltage"]
+        node_ids = self.model.get_component_ids(ComponentType.node)
+        timestamps = self.p_profile.index
+
+        max_voltage = np.max(voltage_results, axis =1)
+        min_voltage= np.min(voltage_results, axis=1)
+
+        max_indices= np.argmax(voltage_results, axis= 1)
+        min_indices= np.argmin(voltage_results, axis =1)
+        
+        max_nodes = [node_ids[i] for i in max_indices]
+        min_nodes = [node_ids[i] for i in min_indices]
+
+        together_df = pd.DataFrame({"max_voltage_pu": max_voltage, "max_voltage_node": max_nodes, "min_voltage_pu": min_voltage, "min_voltage_node": min_nodes}, index=timestamps)
+
+        return together_df
 
     def _get_line_summary(self):
 
