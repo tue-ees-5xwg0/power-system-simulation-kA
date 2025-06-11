@@ -47,6 +47,7 @@ class TimeSeriesPowerFlow:
 
         # Placeholder for batch output and summaries
         self.batch_output = None
+        self.voltage_summary = None
         self.line_summary = None
 
     def run(self):
@@ -71,33 +72,43 @@ class TimeSeriesPowerFlow:
             calculation_method=CalculationMethod.newton_raphson,
         )
 
+        self.voltage_summary = self._get_voltage_summary()
         self.line_summary = self._get_line_summary()
 
-    def get_voltage_summary(self):
-        # TODO: Aggregate max/min voltage and corresponding node IDs for each timestamp
-        if self.batch_output is None:
-            raise RuntimeError("No Results Yet.")
-        voltage_results = self.batch_output["voltage"]
-        node_ids = self.model.get_component_ids(ComponentType.node)
-        timestamps = self.p_profile.index
+    def _get_voltage_summary(self):
 
-        max_voltage = np.max(voltage_results, axis =1)
-        min_voltage= np.min(voltage_results, axis=1)
+        nodes = self.batch_output["node"]
+        output = pd.DataFrame(index=self.p_profile.index)
+        output.index.name = "timestamp"
 
-        max_indices= np.argmax(voltage_results, axis= 1)
-        min_indices= np.argmin(voltage_results, axis =1)
-        
-        max_nodes = [node_ids[i] for i in max_indices]
-        min_nodes = [node_ids[i] for i in min_indices]
+        # determine maximum and minimum voltage per line
+        temp_max_node = []
+        temp_max_value = []
+        temp_min_node = []
+        temp_min_value = []
 
-        together_df = pd.DataFrame({"max_voltage_pu": max_voltage, "max_voltage_node": max_nodes, "min_voltage_pu": min_voltage, "min_voltage_node": min_nodes}, index=timestamps)
+        for i, timestamp in enumerate(nodes):
+            i_max = timestamp["u_pu"].argmax()
+            temp_max_value.append(timestamp[i_max]["u_pu"])
+            temp_max_node.append(timestamp[i_max]["id"])
 
-        return together_df
+            i_min = timestamp["u_pu"].argmin()
+            temp_min_value.append(timestamp[i_min]["u_pu"])
+            temp_min_node.append(timestamp[i_min]["id"])
+
+        output["max_u_pu_node"] = temp_max_node
+        output["max_u_pu"] = temp_max_value
+        output["min_u_pu_node"] = temp_min_node
+        output["min_u_pu"] = temp_min_value
+
+        return output
+
 
     def _get_line_summary(self):
 
         lines = self.batch_output["line"]
         output = pd.DataFrame(index=lines[0]["id"])
+        output.index.name = "line"
 
         # calculate total power loss per line
         s_from = lines["s_from"]
@@ -131,5 +142,6 @@ class TimeSeriesPowerFlow:
         output["max_loading"] = temp_max_value
         output["min_loading_timestamp"] = temp_min_timestamp
         output["min_loading"] = temp_min_value
+
 
         return output
