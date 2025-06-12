@@ -23,7 +23,9 @@ def test_power_grid_model_normal_init():
     )
 
     assert ts.p_profile.shape == (10, 3)
+    assert ts.p_profile.shape == (10, 3)
     assert ts.model is not None
+
 
 
 def test_power_grid_model_run_output():
@@ -35,6 +37,7 @@ def test_power_grid_model_run_output():
     ts.run()
 
     # checking if there is something stored in batch_output
+    assert ts.batch_output is not None
     assert ts.batch_output is not None
     # checking if the node voltages are stored in batch_output
     assert ComponentType.node in ts.batch_output
