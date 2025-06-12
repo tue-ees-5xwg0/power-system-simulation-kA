@@ -5,11 +5,10 @@ import pytest
 from power_grid_model import ComponentType
 from test_utilities import compare_pandas_dataframes_fp
 
-from power_system_simulation.power_grid_model import (
+from power_system_simulation.power_grid_graph import PowerGridGraph
+from power_system_simulation.power_grid_simulation import (
     LoadProfileMismatchError,
-    PowerGrid,
-    PowerGridProcessor,
-    PowerProfile,
+    PowerGridFlowSimulation,
 )
 
 # testdata filepaths
@@ -21,10 +20,8 @@ voltage_summary_small_path = "tests/test_power_grid_model_data/test_voltage_summ
 
 
 def test_power_grid_model_normal_init():
-    ts = TimeSeriesPowerFlow(
-        pgm_path=pgm_small_path,
-        p_path=p_profile_small_path,
-        q_path=q_profile_small_path,
+    ts = PowerGridFlowSimulation(
+        power_grid_graph_path=pgm_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
     )
 
     assert ts.p_profile.shape == (10, 3)
@@ -33,10 +30,8 @@ def test_power_grid_model_normal_init():
 
 
 def test_power_grid_model_run_output():
-    ts = TimeSeriesPowerFlow(
-        pgm_path=pgm_small_path,
-        p_path=p_profile_small_path,
-        q_path=q_profile_small_path,
+    ts = PowerGridFlowSimulation(
+        power_grid_graph_path=pgm_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
     )
     ts.run()
 
@@ -48,10 +43,8 @@ def test_power_grid_model_run_output():
 
 
 def test_get_voltage_summary():
-    ts = TimeSeriesPowerFlow(
-        pgm_path=pgm_small_path,
-        p_path=p_profile_small_path,
-        q_path=q_profile_small_path,
+    ts = PowerGridFlowSimulation(
+        power_grid_graph_path=pgm_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
     )
 
     # test initialized to None
@@ -72,10 +65,8 @@ def test_get_voltage_summary():
 
 def test_power_grid_model_get_line_summary():
 
-    ts = TimeSeriesPowerFlow(
-        pgm_path=pgm_small_path,
-        p_path=p_profile_small_path,
-        q_path=q_profile_small_path,
+    ts = PowerGridFlowSimulation(
+        power_grid_graph_path=pgm_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
     )
 
     # test initialized to None

@@ -6,30 +6,14 @@ import copy
 from typing import List, Tuple
 
 import networkx as nx
-
-
-class IDNotFoundError(Exception):
-    "Error when an ID in a list cannot be found."
-
-
-class InputLengthDoesNotMatchError(Exception):
-    "Error when 2 lists are not of the same length."
-
-
-class IDNotUniqueError(Exception):
-    "Error when there is a duplicate ID in an ID list."
-
-
-class GraphNotFullyConnectedError(Exception):
-    "Error when a graph is split and thus not fully connected to the source vertex."
-
-
-class GraphCycleError(Exception):
-    "Error when a graph has a loop in it. This is not allowed."
-
-
-class EdgeAlreadyDisabledError(Exception):
-    "Error when trying to disable an edge that is already disabled."
+from power_system_simulation.exceptions import (
+    IDNotFoundError,
+    IDNotUniqueError,
+    InputLengthDoesNotMatchError,
+    GraphNotFullyConnectedError,
+    GraphCycleError,
+    EdgeAlreadyDisabledError,
+)
 
 
 def filter_disabled_edges(graph):
@@ -89,91 +73,20 @@ class GraphProcessor(nx.Graph):
         # initialize the nx.Graph base object
         super().__init__()
 
-        # 1 check vertex_ids and edge_ids to be unique
-        if self._has_duplicate_ids(vertex_ids):
-            raise IDNotUniqueError("Input list vertex_ids contains a duplicate id.")
-        if self._has_duplicate_ids(edge_ids):
-            raise IDNotUniqueError("Input list edge_ids contains a duplicate id.")
-
-        # 2 check edge_vertex_id_pairs is the same length as edge_ids
-        if not self._has_same_length(edge_ids, edge_vertex_id_pairs):
-            raise InputLengthDoesNotMatchError(
-                "The length of edge_ids does not match the length of edge_vertex_id_pairs."
-            )
-
-        # 3 check edge_vertex_id_pairs has valid vertex ids
-        if not self._has_vertex_ids(vertex_ids, edge_vertex_id_pairs):
-            raise IDNotFoundError("edge_vertex_id_pairs contains a non-existent vertex ID.")
-
-        # 4 check edge_enabled has the same length as edge_ids
-        if not self._has_same_length(edge_ids, edge_enabled):
-            raise InputLengthDoesNotMatchError("The length of edge_ids does not match the length of edge_enabled.")
-
-        # 5 source_vertex_id should be a valid vertex id
-        if not self._has_id(vertex_ids, source_vertex_id):
-            raise IDNotFoundError("The provided source_vertex_id is not in the vertex_ids list.")
-
-        # create nx graph after input checks
-        self.add_nodes_from(vertex_ids)
-        for i, (u, v) in enumerate(edge_vertex_id_pairs):
-            self.add_edge(u, v, id=edge_ids[i], enabled=edge_enabled[i])
+        self.vertex_ids = vertex_ids
+        self.edge_ids = edge_ids
+        self.edge_vertex_id_pairs = edge_vertex_id_pairs
+        self.edge_enabled = edge_enabled
         self.source_vertex_id = source_vertex_id
+        self._validate_graph(recursive_object)
 
-        # only run this if the object is created as a normal object, not when run by another function such as is_cyclic
-        if not recursive_object:
+    def from_power_grid_graph():
+        """Generates a GraphProcessor from a PowerGridGraph"""
+        pass
 
-            # 6 the graph should be fully connected
-            if not nx.is_connected(filter_disabled_edges(self)):
-                raise GraphNotFullyConnectedError("The graph is not fully connected.")
-
-            # 7 the graph should not contain cycles
-            if filter_disabled_edges(self).is_cyclic():
-                raise GraphCycleError("The graph contains a cycle.")
-
-    def _has_duplicate_ids(self, ids: List[int]):
-        """
-        Check for duplicate ids in a list that should have unique ids
-        """
-
-        for i_origin, id_origin in enumerate(ids):
-            for i_check, id_check in enumerate(ids):
-                if i_origin != i_check and id_origin == id_check:
-                    return True
-        return False
-
-    def _has_same_length(self, list1, list2):
-        """
-        Check if two lists have the same length. This is useful when one list maps to the entries in another list.
-        """
-
-        if len(list1) != len(list2):
-            return False
-        return True
-
-    def _has_vertex_ids(self, vertex_ids: List[int], edge_vertex_id_pairs: List[Tuple[int, int]]):
-        """
-        Check if all vertex_ids int the edge_vertex_id_pairs list map to an existing vertex_id.
-        """
-
-        for pair in edge_vertex_id_pairs:
-            for vertex_origin in pair:
-                check = False
-                for vertex_check in vertex_ids:
-                    if vertex_origin == vertex_check:
-                        check = True
-                if not check:
-                    return False
-        return True
-
-    def _has_id(self, ids: List[int], id_check: int):
-        """
-        Checks if a specific ID is present in a list.
-        """
-
-        for id_origin in ids:
-            if id_origin == id_check:
-                return True
-        return False
+    def to_power_grid_graph():
+        """Generates a PowerGridGraph from this GraphProcessor"""
+        pass
 
     def is_cyclic(self, orientation=None) -> bool:
         """
@@ -390,3 +303,90 @@ class GraphProcessor(nx.Graph):
                 valid_alternatives.append(candidate_edge_id)
 
         return valid_alternatives
+
+    def _validate_graph(self, recursive_object):
+        # 1 check vertex_ids and edge_ids to be unique
+        if self._has_duplicate_ids(self.vertex_ids):
+            raise IDNotUniqueError("Input list vertex_ids contains a duplicate id.")
+        if self._has_duplicate_ids(self.edge_ids):
+            raise IDNotUniqueError("Input list edge_ids contains a duplicate id.")
+
+        # 2 check edge_vertex_id_pairs is the same length as edge_ids
+        if not self._has_same_length(self.edge_ids, self.edge_vertex_id_pairs):
+            raise InputLengthDoesNotMatchError(
+                "The length of edge_ids does not match the length of edge_vertex_id_pairs."
+            )
+
+        # 3 check edge_vertex_id_pairs has valid vertex ids
+        if not self._has_vertex_ids(self.vertex_ids, self.edge_vertex_id_pairs):
+            raise IDNotFoundError("edge_vertex_id_pairs contains a non-existent vertex ID.")
+
+        # 4 check edge_enabled has the same length as edge_ids
+        if not self._has_same_length(self.edge_ids, self.edge_enabled):
+            raise InputLengthDoesNotMatchError("The length of edge_ids does not match the length of edge_enabled.")
+
+        # 5 source_vertex_id should be a valid vertex id
+        if not self._has_id(self.vertex_ids, self.source_vertex_id):
+            raise IDNotFoundError("The provided source_vertex_id is not in the vertex_ids list.")
+
+        # create nx graph after input checks
+        self.add_nodes_from(self.vertex_ids)
+        for i, (u, v) in enumerate(self.edge_vertex_id_pairs):
+            self.add_edge(u, v, id=self.edge_ids[i], enabled=self.edge_enabled[i])
+        self.source_vertex_id = self.source_vertex_id
+
+        # only run this if the object is created as a normal object, not when run by another function such as is_cyclic, that would create infinite recursion
+        if not recursive_object:
+
+            # 6 the graph should be fully connected
+            if not nx.is_connected(filter_disabled_edges(self)):
+                raise GraphNotFullyConnectedError("The graph is not fully connected.")
+
+            # 7 the graph should not contain cycles
+            if filter_disabled_edges(self).is_cyclic():
+                raise GraphCycleError("The graph contains a cycle.")
+
+    def _has_duplicate_ids(self, ids: List[int]):
+        """
+        Check for duplicate ids in a list that should have unique ids
+        """
+
+        for i_origin, id_origin in enumerate(ids):
+            for i_check, id_check in enumerate(ids):
+                if i_origin != i_check and id_origin == id_check:
+                    return True
+        return False
+
+    def _has_same_length(self, list1, list2):
+        """
+        Check if two lists have the same length. This is useful when one list maps to the entries in another list.
+        """
+
+        if len(list1) != len(list2):
+            return False
+        return True
+
+    def _has_vertex_ids(self, vertex_ids: List[int], edge_vertex_id_pairs: List[Tuple[int, int]]):
+        """
+        Check if all vertex_ids int the edge_vertex_id_pairs list map to an existing vertex_id.
+        """
+
+        for pair in edge_vertex_id_pairs:
+            for vertex_origin in pair:
+                check = False
+                for vertex_check in vertex_ids:
+                    if vertex_origin == vertex_check:
+                        check = True
+                if not check:
+                    return False
+        return True
+
+    def _has_id(self, ids: List[int], id_check: int):
+        """
+        Checks if a specific ID is present in a list.
+        """
+
+        for id_origin in ids:
+            if id_origin == id_check:
+                return True
+        return False
