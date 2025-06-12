@@ -22,47 +22,161 @@ class LoadProfileMismatchError(Exception):
     """Raised when the active and reactive load profiles do not align."""
 
 
+class ValidationError(Exception):
+    """Raised when invalid data is attempted to be used."""
 
-class TimeSeriesPowerFlow:
+
+class PowerGrid:
     """
-    This class contains the processing around the the power-grid-model from the power_grid_model package.
+    This class stores a power grid graph, this can then be used to create a PowerGridProcessor or a GraphProcessor.
     """
 
-    def __init__(self, pgm_path: str, p_path: str, q_path: str):
+    def __init__(self, path=None):
+        self.valid = False
+        self.data = None
 
-        # Load grid
-        with open(pgm_path, "r", encoding="utf-8") as file:
-            self.grid_data = json_deserialize(file.read())
+        if path is not None:
+            self.load_json(path)
 
-        # Load profile data
-        self.p_profile = pd.read_parquet(p_path)
-        self.q_profile = pd.read_parquet(q_path)
+    def load_json(self, path):
+        with open(path, "r", encoding="utf-8") as file:
+            self.data = json_deserialize(file.read())
 
-        # Validate profiles
+        self.valid = self._validate()
+
+    def _validate(self):
+        # TODO: implement validation checks
+        return True
+
+    def add_node(self):
+        pass
+
+    def remove_node(self):
+        pass
+
+    def add_line(self):
+        pass
+
+    def remove_line(self):
+        pass
+
+    def add_sym_load(self):
+        pass
+
+    def remove_sym_load(self):
+        pass
+
+    def set_source(self):
+        pass
+
+
+class PowerProfile:
+    """
+    This class stores the power profile and can be used by the PowerGridProcessor to run the model over a PowerGrid.
+    """
+
+    def __init__(self, path=None):
+        self.valid = False
+        self.data = None
+
+        if path is not None:
+            self.load_parquet(path)
+
+    def load_parquet(self, path):
+        self.data = pd.read_parquet(path)
+
+        self.valid = self._validate()
+
+    def _validate(self):
+        # TODO: implement validation checks
+        return True
+
+    def add(self):
+        pass
+
+    def remove(self):
+        pass
+
+
+class PowerGridProcessor:
+    """
+    This class contains the processing around the power_grid_model from the power_grid_model package.
+    """
+
+    def __init__(self, *, power_grid_path: str = None, p_profile_path: str = None, q_profile_path: str = None):
+        self.power_grid = None
+        self.p_profile = None
+        self.q_profile = None
+
+        if power_grid_path is not None:
+            self.power_grid = PowerGrid(power_grid_path)
+
+        if p_profile_path is not None:
+            self.p_profile = PowerProfile(p_profile_path)
+
+        if q_profile_path is not None:
+            self.q_profile = PowerProfile(q_profile_path)
+
+        self.model = None
+        self.batch_output = None
+        self.voltage_summary = None
+        self.line_summary = None
+
+    def _validate_power_profiles(self):
+        _validate_p_profile()
+        _validate_q_profile()
+
         if not self.p_profile.index.equals(self.q_profile.index):
             raise LoadProfileMismatchError("Timestamps do not match between p and q profiles.")
         if not self.p_profile.columns.equals(self.q_profile.columns):
             raise LoadProfileMismatchError("Load IDs do not match between p and q profiles.")
 
-        # Create model
-        self.model = PowerGridModel(self.grid_data)
+        return True
 
-        # Placeholder for batch output and summaries
-        self.batch_output = None
-        self.voltage_summary = None
-        self.line_summary = None
+    def _validate_power_grid(self):
+        try:
+            assert self.power_grid.valid
+        except AssertionError:
+            raise ValidationError("power_grid is not in a valid state, please update it.")
+        except:
+            raise ValueError("power_grid not found, please make a power grid first.")
+
+    def _validate_p_profile(self):
+        try:
+            assert self.p_profile.valid
+        except AssertionError:
+            raise ValidationError("p_profile is not in a valid state, please update it.")
+        except:
+            raise ValueError("p_profile not found, please make a p_profile first.")
+
+    def _validate_q_profile(self):
+        try:
+            assert self.q_profile.valid
+        except AssertionError:
+            raise ValidationError("q_profile is not in a valid state, please update it.")
+        except:
+            raise ValueError("q_profile not found, please make a p_profile first.")
+
+    def update(self):
+        """
+        Updates the power_grid_model with the current power grid.
+        """
+        _validate_power_grid()
+        self.model = PowerGridModel(self.power_grid.data)
 
     def run(self):
         """
-        After initializing the class and setting up the model properties, this function can be run the process the
+        After initializing the class and setting up the model properties, this function can be run to process the
         model and save the output to batch_output, voltage_summary and line_summary.
         """
-        num_time_stamps, num_sym_loads = self.p_profile.shape
+        _validate_power_profiles()
+
+        num_time_stamps, num_sym_loads = self.p_profile.data.shape
 
         update_sym_load = initialize_array(DatasetType.update, ComponentType.sym_load, (num_time_stamps, num_sym_loads))
-        update_sym_load["id"] = [self.p_profile.columns.tolist()]
-        update_sym_load["p_specified"] = self.p_profile
-        update_sym_load["q_specified"] = self.q_profile
+        update_sym_load["id"] = [self.p_profile.data.columns.tolist()]
+        update_sym_load["p_specified"] = self.p_profile.data
+        update_sym_load["q_specified"] = self.q_profile.data
 
         time_series_mutation = {ComponentType.sym_load: update_sym_load}
 

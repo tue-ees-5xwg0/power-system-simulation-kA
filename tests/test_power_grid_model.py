@@ -5,7 +5,12 @@ import pytest
 from power_grid_model import ComponentType
 from test_utilities import compare_pandas_dataframes_fp
 
-from power_system_simulation.power_grid_model import LoadProfileMismatchError, TimeSeriesPowerFlow
+from power_system_simulation.power_grid_model import (
+    LoadProfileMismatchError,
+    PowerGrid,
+    PowerGridProcessor,
+    PowerProfile,
+)
 
 # testdata filepaths
 pgm_small_path = "tests/test_power_grid_model_data/input_network_data.json"
@@ -25,7 +30,6 @@ def test_power_grid_model_normal_init():
     assert ts.p_profile.shape == (10, 3)
     assert ts.p_profile.shape == (10, 3)
     assert ts.model is not None
-
 
 
 def test_power_grid_model_run_output():
