@@ -1,5 +1,5 @@
 """
-This is a file containing the GraphProcessor object class, and supplemental functions.
+This is a file containing the GraphProcessor object class to process the power grid and supplemental functions.
 """
 
 import copy
@@ -79,14 +79,6 @@ class GraphProcessor(nx.Graph):
         self.edge_enabled = edge_enabled
         self.source_vertex_id = source_vertex_id
         self._validate_graph(recursive_object)
-
-    def from_power_grid_graph():
-        """Generates a GraphProcessor from a PowerGridGraph"""
-        pass
-
-    def to_power_grid_graph():
-        """Generates a PowerGridGraph from this GraphProcessor"""
-        pass
 
     def is_cyclic(self, orientation=None) -> bool:
         """

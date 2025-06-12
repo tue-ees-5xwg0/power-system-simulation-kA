@@ -1,10 +1,11 @@
 """
-This module contains the power grid model and the processing around it in the TimeSeriesPowerFlow class.
+This module contains the power grid model and the processing around it class.
 """
+from power_grid_model.utils import json_deserialize
+import copy
 
 import numpy as np
 import pandas as pd
-from power_system_simulation.power_grid_graph import PowerGridGraph
 from power_grid_model import (
     CalculationMethod,
     ComponentType,
@@ -18,20 +19,54 @@ from power_system_simulation.exceptions import (
     ValidationError,
     DataNotFoundError,
 )
+from typing import Literal, get_args
+
+_OPTIMIZATION_CRITERIA = Literal["minimal_deviation_u_pu", "minimal_energy_loss"]
+    
+
+def ev_penetration_level(power_grid: PowerGrid, ev_charging_profile_path: str, penetration_level: float):
+    pg = copy.deepcopy(power_grid)
+
+    # TODO do something with the pg to randomly distribute ev chargers from the ev
+
+    return [pg.voltage_summary, pg.line_summary]
+
+def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: _OPTIMIZATION_CRITERIA = "minimal_deviation_u_pu"):
+    pg = copy.deepcopy(power_grid)
+    options = get_args(_OPTIMIZATION_CRITERIA)
+    assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
 
 
-class PowerGridFlowSimulation():
+    # TODO do something with the pg like iterate with different tap positions and return the optimum tap position for the transformer.
+    
+
+    return optimum_tap_position
+
+def n_1_calculation(power_grid: PowerGrid):
+    pg = copy.deepcopy(power_grid)
+    output = pd.DataFrame()
+
+    # TODO create alternative power_grids, one for each different alternative line. Summarize the results into the output table. Use
+    # the graph_processor to find out which lines to use.
+
+    return output
+
+
+
+class PowerGrid():
     """
     This class contains the processing around the power_grid_model from the power_grid_model package.
     """
 
-    def __init__(self, *, power_grid_graph_path: str = None, p_profile_path: str = None, q_profile_path: str = None):
-        self.power_grid_graph = None
+    def __init__(self, *, power_grid_path: str = None, p_profile_path: str = None, q_profile_path: str = None):
+        self.power_grid = None
         self.p_profile = None
         self.q_profile = None
+        self.model = PowerGridModel()
 
-        if power_grid_graph_path is not None:
-            self.power_grid_graph = PowerGridGraph(power_grid_graph_path)
+        if power_grid_path is not None:
+            load_grid_json(power_grid_path)
+            self.model.update(self.power_grid)
 
         if p_profile_path is not None:
             self.load_p_profile_parquet(p_profile_path)
@@ -39,10 +74,13 @@ class PowerGridFlowSimulation():
         if q_profile_path is not None:
             self.load_q_profile_parquet(q_profile_path)
 
-        self.model = None
         self.batch_output = None
         self.voltage_summary = None
         self.line_summary = None
+
+    def load_grid_json(self, path):
+        with open(path, "r", encoding="utf-8") as file:
+            self.power_grid = json_deserialize(file.read())
 
     def load_p_profile_parquet(self, path):
         self.p_profile = pd.read_parquet(path)
@@ -50,35 +88,12 @@ class PowerGridFlowSimulation():
     def load_q_profile_parquet(self, path):
         self.q_profile = pd.read_parquet(path)
 
-    def _validate_power_profiles(self):
-        if self.p_profile is None:
-            raise ValidationError(
-                "No data found in the p_profile. Make sure an active power profile is loaded into the object."
-            )
-        if self.q_profile is None:
-            raise ValidationError(
-                "No data found in the q_profile. Make sure an reactive power profile is loaded into the object."
-            )
-
-        if not self.p_profile.index.equals(self.q_profile.index):
-            raise LoadProfileMismatchError("Timestamps do not match between p and q profiles.")
-        if not self.p_profile.columns.equals(self.q_profile.columns):
-            raise LoadProfileMismatchError("Load IDs do not match between p and q profiles.")
-
-    def _validate_power_grid_graph(self):
-        try:
-            assert self.power_grid_graph.valid
-        except AssertionError:
-            raise ValidationError("power_grid is not in a valid state, please update to be valid.")
-        except:
-            raise ValueError("power_grid not found, please make a power grid first.")
-
     def update(self):
         """
         Updates the power_grid_model to the current power grid graph.
         """
-        self._validate_power_grid_graph()
-        self.model = PowerGridModel(self.power_grid_graph.data)
+        self._validate_power_grid()
+        self.model.update(self.power_grid)
 
     def run(self):
         """
@@ -106,6 +121,31 @@ class PowerGridFlowSimulation():
 
         self.voltage_summary = self._get_voltage_summary()
         self.line_summary = self._get_line_summary()
+
+    def _validate_power_profiles(self):
+        # if self.p_profile is None:
+        #     raise ValidationError(
+        #         "No data found in the p_profile. Make sure an active power profile is loaded into the object."
+        #     )
+        # if self.q_profile is None:
+        #     raise ValidationError(
+        #         "No data found in the q_profile. Make sure an reactive power profile is loaded into the object."
+        #     )
+
+        # if not self.p_profile.index.equals(self.q_profile.index):
+        #     raise LoadProfileMismatchError("Timestamps do not match between p and q profiles.")
+        # if not self.p_profile.columns.equals(self.q_profile.columns):
+        #     raise LoadProfileMismatchError("Load IDs do not match between p and q profiles.")
+        pass
+
+    def _validate_power_grid(self):
+        # try:
+        #     assert self.power_grid is not None
+        # except AssertionError:
+        #     raise ValidationError("power_grid is not in a valid state, please update to be valid.")
+        # except:
+        #     raise ValueError("power_grid not found, please make a power grid first.")
+        pass
 
     def _get_voltage_summary(self):
         """
