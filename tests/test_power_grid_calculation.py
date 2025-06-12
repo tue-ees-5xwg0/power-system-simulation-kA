@@ -5,10 +5,9 @@ import pytest
 from power_grid_model import ComponentType
 from test_utilities import compare_pandas_dataframes_fp
 
-from power_system_simulation.power_grid_graph import PowerGridGraph
-from power_system_simulation.power_grid_simulation import (
+from power_system_simulation.power_grid_calculation import (
     LoadProfileMismatchError,
-    PowerGridFlowSimulation,
+    PowerGrid,
 )
 
 # testdata filepaths
@@ -20,43 +19,37 @@ voltage_summary_small_path = "tests/test_power_grid_model_data/test_voltage_summ
 
 
 def test_power_grid_model_normal_init():
-    ts = PowerGridFlowSimulation(
-        power_grid_graph_path=pgm_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
-    )
+    test_grid = PowerGrid(pgm_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
 
-    assert ts.p_profile.shape == (10, 3)
-    assert ts.p_profile.shape == (10, 3)
-    assert ts.model is not None
+    assert test_grid.p_profile.shape == (10, 3)
+    assert test_grid.p_profile.shape == (10, 3)
+    assert test_grid.model is not None
 
 
 def test_power_grid_model_run_output():
-    ts = PowerGridFlowSimulation(
-        power_grid_graph_path=pgm_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
-    )
-    ts.run()
+    test_grid = PowerGrid(pgm_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
+    test_grid.run()
 
     # checking if there is something stored in batch_output
-    assert ts.batch_output is not None
-    assert ts.batch_output is not None
+    assert test_grid.batch_output is not None
+    assert test_grid.batch_output is not None
     # checking if the node voltages are stored in batch_output
-    assert ComponentType.node in ts.batch_output
+    assert ComponentType.node in test_grid.batch_output
 
 
 def test_get_voltage_summary():
-    ts = PowerGridFlowSimulation(
-        power_grid_graph_path=pgm_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
-    )
+    test_grid = PowerGrid(pgm_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
 
     # test initialized to None
-    assert ts.voltage_summary is None
+    assert test_grid.voltage_summary is None
 
     # test after running power model
-    ts.run()
-    assert ts.voltage_summary is not None
+    test_grid.run()
+    assert test_grid.voltage_summary is not None
 
     # compare dataframe to a reference dataframe
     test_results = compare_pandas_dataframes_fp(
-        ts.voltage_summary,
+        test_grid.voltage_summary,
         pd.read_csv(voltage_summary_small_path, index_col=0, parse_dates=["timestamp"]),
         ["max_u_pu_node", "max_u_pu", "min_u_pu_node", "min_u_pu"],
     )
@@ -65,20 +58,18 @@ def test_get_voltage_summary():
 
 def test_power_grid_model_get_line_summary():
 
-    ts = PowerGridFlowSimulation(
-        power_grid_graph_path=pgm_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
-    )
+    test_grid = PowerGrid(pgm_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
 
     # test initialized to None
-    assert ts.line_summary is None
+    assert test_grid.line_summary is None
 
     # test after running power model
-    ts.run()
-    assert ts.line_summary is not None
+    test_grid.run()
+    assert test_grid.line_summary is not None
 
     # compare dataframe to a reference dataframe
     test_results = compare_pandas_dataframes_fp(
-        ts.line_summary,
+        test_grid.line_summary,
         pd.read_csv(line_summary_small_path, index_col=0),
         ["max_loading_timestamp", "max_loading", "min_loading_timestamp", "min_loading"],
     )

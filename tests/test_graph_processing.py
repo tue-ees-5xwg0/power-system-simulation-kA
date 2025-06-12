@@ -2,7 +2,17 @@ from contextlib import nullcontext as does_not_raise
 
 import pytest
 
-import power_system_simulation.graph_processing as gp
+from power_system_simulation.data_validation import *
+from power_system_simulation.exceptions import *
+from power_system_simulation.graph_processing import (
+    create_graph,
+    filter_disabled_edges,
+    find_alternative_edges,
+    find_downstream_vertices,
+    is_cyclic,
+    is_edge_enabled,
+    set_edge_enabled_status,
+)
 
 
 def test_init_normal():
@@ -26,7 +36,7 @@ def test_init_normal():
     edge_enabled = [True, True, True, True, True, True, True]
     source_vertex_id = 1
 
-    gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    graph = create_graph(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
 
 
 def test_init_err1_duplicate_vertex_ids():
@@ -50,8 +60,8 @@ def test_init_err1_duplicate_vertex_ids():
     edge_enabled = [True, True, True, True, True, True, True]
     source_vertex_id = 1
 
-    with pytest.raises(gp.IDNotUniqueError) as output:
-        gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    with pytest.raises(IDNotUniqueError) as output:
+        create_graph(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
         assert output.value.args[0] == "Input list vertex_ids contains a duplicate id."
 
 
@@ -76,8 +86,8 @@ def test_init_err1_duplicate_edge_ids():
     edge_enabled = [True, True, True, True, True, True, True]
     source_vertex_id = 1
 
-    with pytest.raises(gp.IDNotUniqueError) as output:
-        gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    with pytest.raises(IDNotUniqueError) as output:
+        create_graph(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
         assert output.value.args[0] == "Input list edge_ids contains a duplicate id."
 
 
@@ -103,8 +113,8 @@ def test_init_err2_id_pair_length_mismatch():
     edge_enabled = [True, True, True, True, True, True, True]
     source_vertex_id = 1
 
-    with pytest.raises(gp.InputLengthDoesNotMatchError) as output:
-        gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    with pytest.raises(InputLengthDoesNotMatchError) as output:
+        create_graph(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
         assert output.value.args[0] == "The length of edge_ids does not match the length of edge_vertex_id_pairs."
 
 
@@ -129,8 +139,8 @@ def test_init_err3_invalid_id_pair_id():
     edge_enabled = [True, True, True, True, True, True, True]
     source_vertex_id = 1
 
-    with pytest.raises(gp.IDNotFoundError) as output:
-        gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    with pytest.raises(IDNotFoundError) as output:
+        create_graph(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
         assert output.value.args[0] == "edge_vertex_id_pairs contains a non-existent vertex ID."
 
 
@@ -155,8 +165,8 @@ def test_init_err4_edge_enabled_length_mismatch():
     edge_enabled = [True, True, True, True, True, True, True, True]
     source_vertex_id = 1
 
-    with pytest.raises(gp.InputLengthDoesNotMatchError) as output:
-        gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    with pytest.raises(InputLengthDoesNotMatchError) as output:
+        create_graph(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
         assert output.value.args[0] == "The length of edge_ids does not match the length of edge_enabled."
 
 
@@ -181,8 +191,8 @@ def test_init_err5_invalid_source_id():
     edge_enabled = [True, True, True, True, True, True, True]
     source_vertex_id = 9
 
-    with pytest.raises(gp.IDNotFoundError) as output:
-        gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    with pytest.raises(IDNotFoundError) as output:
+        create_graph(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
         assert output.value.args[0] == "The provided source_vertex_id is not in the vertex_ids list."
 
 
@@ -208,8 +218,8 @@ def test_init_err6_graph_not_connected_error():
     edge_enabled = [True, True, True, True, True, True]
     source_vertex_id = 1
 
-    with pytest.raises(gp.GraphNotFullyConnectedError) as output:
-        gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    with pytest.raises(GraphNotFullyConnectedError) as output:
+        create_graph(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
         assert output.value.args[0] == "The graph is not fully connected."
 
 
@@ -235,8 +245,8 @@ def test_init_err6_graph_not_connected_disabled_error():
     edge_enabled = [True, True, True, True, False, True, True]
     source_vertex_id = 1
 
-    with pytest.raises(gp.GraphNotFullyConnectedError) as output:
-        gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    with pytest.raises(GraphNotFullyConnectedError) as output:
+        create_graph(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
         assert output.value.args[0] == "The graph is not fully connected."
 
 
@@ -261,8 +271,8 @@ def test_init_err7_graph_contains_cycle_error():
     edge_enabled = [True, True, True, True, True, True, True, True]
     source_vertex_id = 1
 
-    with pytest.raises(gp.GraphCycleError) as output:
-        gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    with pytest.raises(GraphCycleError) as output:
+        create_graph(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
         assert output.value.args[0] == "The graph contains a cycle."
 
 
@@ -288,7 +298,7 @@ def test_init_err7_graph_contains_cycle_disabled_error():
     edge_enabled = [True, True, True, True, True, True, True, False]
     source_vertex_id = 1
 
-    gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    create_graph(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
 
 
 def test_is_edge_enabled():
@@ -313,15 +323,15 @@ def test_is_edge_enabled():
     edge_enabled = [True, True, True, False, False, True]
     source_vertex_id = 0
 
-    test = gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    test = create_graph(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
 
     # Test if edges are enabled or disabled
-    assert test.is_edge_enabled(3) == True
-    assert test.is_edge_enabled(7) == False
+    assert is_edge_enabled(test, 3) == True
+    assert is_edge_enabled(test, 7) == False
 
     # Test if error is raised if chosen edge is not a valid ID
-    with pytest.raises(gp.IDNotFoundError) as output:
-        test.is_edge_enabled(10)
+    with pytest.raises(IDNotFoundError) as output:
+        is_edge_enabled(test, 10)
         assert output.value.args[0] == "The chosen edge 10 is not in the ID list."
 
 
@@ -342,19 +352,19 @@ def test_find_downstream_vertices_normal_case():
     edge_enabled = [True, True, True, True]
     source_vertex_id = 1
 
-    graph = gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    test = create_graph(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
 
     # Test edge 1 (1-2) - downstream should be 2,3,4,5
-    assert sorted(graph.find_downstream_vertices(1)) == [2, 3, 4, 5]
+    assert sorted(find_downstream_vertices(test, 1)) == [2, 3, 4, 5]
 
     # Test edge 2 (2-3) - downstream should be 3
-    assert graph.find_downstream_vertices(2) == [3]
+    assert find_downstream_vertices(test, 2) == [3]
 
     # Test edge 3 (2-4) - downstream should be 4,5
-    assert sorted(graph.find_downstream_vertices(3)) == [4, 5]
+    assert sorted(find_downstream_vertices(test, 3)) == [4, 5]
 
     # Test edge 4 (4-5) - downstream should be 5
-    assert graph.find_downstream_vertices(4) == [5]
+    assert find_downstream_vertices(test, 4) == [5]
 
 
 def test_find_downstream_vertices_disabled_case():
@@ -379,21 +389,21 @@ def test_find_downstream_vertices_disabled_case():
     edge_enabled = [True, True, True, False, False, True]
     source_vertex_id = 0
 
-    graph = gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    test = create_graph(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
 
     # Source node 0
-    assert sorted(graph.find_downstream_vertices(1)) == [2, 10]
-    assert graph.find_downstream_vertices(9) == [10]
-    assert graph.find_downstream_vertices(7) == []
+    assert sorted(find_downstream_vertices(test, 1)) == [2, 10]
+    assert find_downstream_vertices(test, 9) == [10]
+    assert find_downstream_vertices(test, 7) == []
 
     # Invalid edge_id
-    with pytest.raises(gp.IDNotFoundError) as output:
-        graph.find_downstream_vertices(2)
+    with pytest.raises(IDNotFoundError) as output:
+        find_downstream_vertices(test, 2)
         assert output.value.args[0] == "The provided ID is not in the edge_ids list."
 
     # Source node 10
-    graph.source_vertex_id = 10
-    assert sorted(graph.find_downstream_vertices(9)) == [0, 2, 4, 6]
+    test.graph["source_vertex_id"] = 10
+    assert sorted(find_downstream_vertices(test, 9)) == [0, 2, 4, 6]
 
 
 def test_edge_set_to_correct_enabled_status():
@@ -419,25 +429,25 @@ def test_edge_set_to_correct_enabled_status():
     edge_enabled = [True, True, True, False, False, True]
     source_vertex_id = 0
 
-    test = gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    test = create_graph(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
 
     # Test if edge 1 is correctly disabled
-    gp.set_edge_enabled_status(test, 1, False)
-    assert test.is_edge_enabled(1) == False
+    set_edge_enabled_status(test, 1, False)
+    assert is_edge_enabled(test,1) == False
 
     # Test if error is raised if chosen edge is already disabled
-    with pytest.raises(gp.EdgeAlreadyDisabledError) as output:
-        gp.set_edge_enabled_status(test, 7, False)
+    with pytest.raises(EdgeAlreadyDisabledError) as output:
+        set_edge_enabled_status(test, 7, False)
         assert output.value.args[0] == "The chosen edge 7 is already disabled."
 
     # Test if error is raised if chosen edge is not a valid ID
-    with pytest.raises(gp.IDNotFoundError) as output:
-        gp.set_edge_enabled_status(test, 10, False)
+    with pytest.raises(IDNotFoundError) as output:
+        set_edge_enabled_status(test, 10, False)
         assert output.value.args[0] == "The chosen edge 10 is not in the ID list."
 
     # Test if edge 7 is actually enabled
-    gp.set_edge_enabled_status(test, 7, True)
-    assert test.is_edge_enabled(7) == True
+    set_edge_enabled_status(test, 7, True)
+    assert is_edge_enabled(test,7) == True
 
 
 def test_find_alternative_edges_err1():
@@ -461,20 +471,20 @@ def test_find_alternative_edges_err1():
     edge_enabled = [True, True, True, False, False, True]
     source_vertex_id = 0
 
-    test = gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    test = create_graph(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
 
     # tests if found alternative edges for disabled edge input are correct (connect the graph and acyclic)
-    assert test.find_alternative_edges(1) == [7]
-    assert test.find_alternative_edges(3) == [7, 8]
-    assert test.find_alternative_edges(5) == [8]
-    assert test.find_alternative_edges(9) == []
+    assert find_alternative_edges(test, 1) == [7]
+    assert find_alternative_edges(test, 3) == [7, 8]
+    assert find_alternative_edges(test, 5) == [8]
+    assert find_alternative_edges(test, 9) == []
 
     # Test if error is raised if chosen edge is already disabled
-    with pytest.raises(gp.EdgeAlreadyDisabledError) as output:
-        test.find_alternative_edges(7)
+    with pytest.raises(EdgeAlreadyDisabledError) as output:
+        find_alternative_edges(test, 7)
         assert output.value.args[0] == "The chosen edge 7 is already disabled."
 
     # Test if error is raised if chosen edge is not a valid ID
-    with pytest.raises(gp.IDNotFoundError) as output:
-        test.find_alternative_edges(10)
+    with pytest.raises(IDNotFoundError) as output:
+        find_alternative_edges(test, 10)
         assert output.value.args[0] == "The chosen edge 10 is not in the ID list."

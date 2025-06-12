@@ -1,8 +1,9 @@
 """
 This module contains the power grid model and the processing around it class.
 """
-from power_grid_model.utils import json_deserialize
+
 import copy
+from typing import Literal, get_args
 
 import numpy as np
 import pandas as pd
@@ -13,61 +14,31 @@ from power_grid_model import (
     PowerGridModel,
     initialize_array,
 )
+from power_grid_model.utils import json_deserialize
+
 from power_system_simulation.exceptions import (
-    NoValidOutputDataError,
-    LoadProfileMismatchError,
-    ValidationError,
     DataNotFoundError,
+    LoadProfileMismatchError,
+    NoValidOutputDataError,
+    ValidationError,
 )
-from typing import Literal, get_args
 
 _OPTIMIZATION_CRITERIA = Literal["minimal_deviation_u_pu", "minimal_energy_loss"]
-    
-
-def ev_penetration_level(power_grid: PowerGrid, ev_charging_profile_path: str, penetration_level: float):
-    pg = copy.deepcopy(power_grid)
-
-    # TODO do something with the pg to randomly distribute ev chargers from the ev
-
-    return [pg.voltage_summary, pg.line_summary]
-
-def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: _OPTIMIZATION_CRITERIA = "minimal_deviation_u_pu"):
-    pg = copy.deepcopy(power_grid)
-    options = get_args(_OPTIMIZATION_CRITERIA)
-    assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
 
 
-    # TODO do something with the pg like iterate with different tap positions and return the optimum tap position for the transformer.
-    
-
-    return optimum_tap_position
-
-def n_1_calculation(power_grid: PowerGrid):
-    pg = copy.deepcopy(power_grid)
-    output = pd.DataFrame()
-
-    # TODO create alternative power_grids, one for each different alternative line. Summarize the results into the output table. Use
-    # the graph_processor to find out which lines to use.
-
-    return output
-
-
-
-class PowerGrid():
+class PowerGrid:
     """
     This class contains the processing around the power_grid_model from the power_grid_model package.
     """
 
-    def __init__(self, *, power_grid_path: str = None, p_profile_path: str = None, q_profile_path: str = None):
+    def __init__(self, power_grid_path: str, *, p_profile_path: str = None, q_profile_path: str = None):
+
         self.power_grid = None
+        self.load_grid_json(power_grid_path)
+        self.model = PowerGridModel(self.power_grid)
+
         self.p_profile = None
         self.q_profile = None
-        self.model = PowerGridModel()
-
-        if power_grid_path is not None:
-            load_grid_json(power_grid_path)
-            self.model.update(self.power_grid)
-
         if p_profile_path is not None:
             self.load_p_profile_parquet(p_profile_path)
 
@@ -93,7 +64,12 @@ class PowerGrid():
         Updates the power_grid_model to the current power grid graph.
         """
         self._validate_power_grid()
+        self.make_graph()
         self.model.update(self.power_grid)
+
+    def make_graph(self):
+        # TODO convert the grid data to a graph using graph_processing.creategraph()
+        pass
 
     def run(self):
         """
@@ -139,12 +115,10 @@ class PowerGrid():
         pass
 
     def _validate_power_grid(self):
-        # try:
-        #     assert self.power_grid is not None
-        # except AssertionError:
-        #     raise ValidationError("power_grid is not in a valid state, please update to be valid.")
-        # except:
-        #     raise ValueError("power_grid not found, please make a power grid first.")
+        try:
+            assert self.power_grid is not None
+        except:
+            raise ValueError("power_grid not found, please make a power grid first.")
         pass
 
     def _get_voltage_summary(self):
@@ -224,3 +198,33 @@ class PowerGrid():
         output["min_loading"] = temp_min_value
 
         return output
+
+
+def ev_penetration_level(power_grid: PowerGrid, ev_charging_profile_path: str, penetration_level: float):
+    pg_copy = copy.deepcopy(power_grid)
+
+    # TODO do something with the pg to randomly distribute ev chargers from the ev
+
+    return [pg_copy.voltage_summary, pg_copy.line_summary]
+
+
+def optimum_tap_position(
+    power_grid: PowerGrid, optimization_criterium: _OPTIMIZATION_CRITERIA = "minimal_deviation_u_pu"
+):
+    pg_copy = copy.deepcopy(power_grid)
+    options = get_args(_OPTIMIZATION_CRITERIA)
+    assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
+
+    # TODO do something with the pg like iterate with different tap positions and return the optimum tap position for the transformer.
+
+    return optimum_tap_position
+
+
+def n_1_calculation(power_grid: PowerGrid):
+    pg_copy = copy.deepcopy(power_grid)
+    output = pd.DataFrame()
+
+    # TODO create alternative power_grids, one for each different alternative line. Summarize the results into the output table. Use
+    # the graph_processor to find out which lines to use.
+
+    return output
