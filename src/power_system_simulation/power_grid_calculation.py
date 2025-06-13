@@ -227,6 +227,35 @@ def optimum_tap_position(
     best_score = float("inf")
     best_tap = original_tap
 
+    for tap_pos in tap_range:
+     
+     for transformer in pg_copy.power_grid["transformer"]:
+         transformer["tap_pos"] = tap_pos
+            
+     try:
+        pg_copy.run()
+     except Exception:
+        continue  # Skip invalid tap positions
+     
+     if optimization_criterium == "minimal_energy_loss":
+            total_energy_loss = pg_copy.line_summary["energy_loss"].sum()
+            score = total_energy_loss
+
+     elif optimization_criterium == "minimal_deviation_u_pu":
+        voltage_dev = (
+            abs(pg_copy.voltage_summary["max_u_pu"] - 1.0) +
+            abs(pg_copy.voltage_summary["min_u_pu"] - 1.0)
+        )
+        score = voltage_dev.mean()
+
+     if score < best_score:
+        best_score = score
+        best_tap = tap_pos
+
+    return best_tap
+
+
+
 
 
 
