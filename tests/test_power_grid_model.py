@@ -68,7 +68,6 @@ def test_power_grid_model_init_err_load_profile_mismatch():
     with pytest.raises(LoadProfileMismatchError, match="Timestamps do not match between p and q profiles."):
         ts.create_model()
 
-
 def test_power_grid_model_run_output():
     ts = TimeSeriesPowerFlow()
     ts.load_data(
