@@ -2,7 +2,6 @@
 This module contains the power grid model and the processing around it in the TimeSeriesPowerFlow class.
 """
 
-import json
 from typing import Optional
 
 import numpy as np
@@ -47,6 +46,22 @@ class TimeSeriesPowerFlow:
         p_df: Optional[pd.DataFrame] = None,
         q_df: Optional[pd.DataFrame] = None,
     ):
+        """
+        Loads the power grid structure and associated time series data.
+
+        Parameters:
+            pgm_path : Path to the JSON file containing the power grid model.
+            p_path : Path to the active power (P) profile parquet file.
+            q_path : Path to the reactive power (Q) profile parquet file.
+            p_df : Active power profile as a DataFrame.
+            q_df : Reactive power profile as a DataFrame.
+
+        Either (p_path/q_path) or (p_df/q_df) must be provided. If both sets are
+        provided, the DataFrames take precedence.
+
+        Raises:
+            ValueError: If neither a file path pair nor a DataFrame pair is provided.
+        """
         with open(pgm_path, "r", encoding="utf-8") as file:
             self.grid_data = json_deserialize(file.read())
 
@@ -60,6 +75,13 @@ class TimeSeriesPowerFlow:
             raise ValueError("Either (p_path and q_path) or (p_df and q_df) must be provided")
 
     def create_model(self):
+        """
+        Validates the time and ID alignment of the p and q profiles,
+        and initializes the PowerGridModel using the loaded grid data.
+
+        Raises:
+        LoadProfileMismatchError: If the timestamps or load IDs don't match.
+        """
         if not self.p_profile.index.equals(self.q_profile.index):
             raise LoadProfileMismatchError("Timestamps do not match between p and q profiles.")
         if not self.p_profile.columns.equals(self.q_profile.columns):
