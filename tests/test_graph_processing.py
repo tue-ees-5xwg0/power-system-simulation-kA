@@ -265,7 +265,7 @@ def test_init_err5_invalid_source_id():
 
     with pytest.raises(IDNotFoundError) as output:
         create_graph(nodes, lines, sym_loads, source)
-    assert output.value.args[0] == "The provided source_node is not in the node list."
+    assert output.value.args[0] == "The provided source_node_id is not in the node list."
 
 
 def test_init_err6_graph_not_connected_error():
@@ -523,7 +523,7 @@ def test_is_edge_enabled():
     # Test if error is raised if chosen edge is not a valid ID
     with pytest.raises(IDNotFoundError) as output:
         is_edge_enabled(test, 12)
-    assert output.value.args[0] == "The chosen edge 10 is not in the ID list."
+    assert output.value.args[0] == "The chosen edge 12 is not in the ID list."
 
 
 def test_find_downstream_vertices_normal_case():
@@ -575,32 +575,51 @@ def test_find_downstream_vertices_normal_case():
 
 def test_find_downstream_vertices_disabled_case():
     """
-    Test for downstream vertices
+    Test for downstream vertices.
 
-    0--[1]--2--[9]--10
-    ^
-    |      [7]
-    |
-    ---[3]--4
-    |
-    |      [8]
-    |
-    ---[5]--6
+    15> 1--[6]--2--[7]--3------(12)
+        |
+        |      [10]
+        |
+        ---[8]--4------(13)
+        |
+        |      [11]
+        |
+        ---[9]--5------(14)
 
     """
 
-    vertex_ids = [0, 2, 4, 6, 10]
-    edge_ids = [1, 3, 5, 7, 8, 9]
-    edge_vertex_id_pairs = [(0, 2), (0, 4), (0, 6), (2, 4), (4, 6), (2, 10)]
-    edge_enabled = [True, True, True, False, False, True]
-    source_vertex_id = 0
+    nodes = [
+        {"id": 1, "u_rated": 400},
+        {"id": 2, "u_rated": 400},
+        {"id": 3, "u_rated": 400},
+        {"id": 4, "u_rated": 400},
+        {"id": 5, "u_rated": 400}
+    ]
+    lines =  [
+        {"id": 6, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
+        {"id": 7, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
+        {"id": 8, "from_node": 1, "to_node": 4, "from_status": 1, "to_status": 1},
+        {"id": 9, "from_node": 1, "to_node": 5, "from_status": 1, "to_status": 1},
+        {"id": 10, "from_node": 2, "to_node": 4, "from_status": 0, "to_status": 0},
+        {"id": 11, "from_node": 4, "to_node": 5, "from_status": 0, "to_status": 0}
+    ]
+    sym_loads =  [
+        {"id": 12, "node": 3},
+        {"id": 13, "node": 4},
+        {"id": 14, "node": 5}
+    ]
+    source = [
+        {"id": 15, "node": 1}
+    ]
 
-    test = create_graph(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
-
-    # Source node 0
-    assert sorted(find_downstream_vertices(test, 1)) == [2, 10]
-    assert find_downstream_vertices(test, 9) == [10]
-    assert find_downstream_vertices(test, 7) == []
+    
+    test = create_graph(nodes, lines, sym_loads, source)
+    
+    # Source node 1
+    assert sorted(find_downstream_vertices(test, 6)) == [2, 3]
+    assert find_downstream_vertices(test, 9) == [5]
+    assert find_downstream_vertices(test, 7) == [3]
 
     # Invalid edge_id
     with pytest.raises(IDNotFoundError) as output:
@@ -608,89 +627,130 @@ def test_find_downstream_vertices_disabled_case():
         assert output.value.args[0] == "The provided ID is not in the edge_ids list."
 
     # Source node 10
-    test.graph["source_vertex_id"] = 10
-    assert sorted(find_downstream_vertices(test, 9)) == [0, 2, 4, 6]
+    test.graph["source_node_id"] = 4
+    assert sorted(find_downstream_vertices(test, 8)) == [1, 2, 3, 5]
 
 
 def test_edge_set_to_correct_enabled_status():
     """
     Tests that the edge is correctly set to enabled or disabled
     and an error is given if edge is already disabled or not a valid id.
-
-    0--[1]--2--[9]--10
-    ^
-    |      [7]
-    |
-    ---[3]--4
-    |
-    |      [8]
-    |
-    ---[5]--6
+    
+    15> 1--[6]--2--[7]--3------(12)
+        |
+        |      [10]
+        |
+        ---[8]--4------(13)
+        |
+        |      [11]
+        |
+        ---[9]--5------(14)
 
     """
 
-    vertex_ids = [0, 2, 4, 6, 10]
-    edge_ids = [1, 3, 5, 7, 8, 9]
-    edge_vertex_id_pairs = [(0, 2), (0, 4), (0, 6), (2, 4), (4, 6), (2, 10)]
-    edge_enabled = [True, True, True, False, False, True]
-    source_vertex_id = 0
+    nodes = [
+        {"id": 1, "u_rated": 400},
+        {"id": 2, "u_rated": 400},
+        {"id": 3, "u_rated": 400},
+        {"id": 4, "u_rated": 400},
+        {"id": 5, "u_rated": 400}
+    ]
+    lines =  [
+        {"id": 6, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
+        {"id": 7, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
+        {"id": 8, "from_node": 1, "to_node": 4, "from_status": 1, "to_status": 1},
+        {"id": 9, "from_node": 1, "to_node": 5, "from_status": 1, "to_status": 1},
+        {"id": 10, "from_node": 2, "to_node": 4, "from_status": 0, "to_status": 0},
+        {"id": 11, "from_node": 4, "to_node": 5, "from_status": 0, "to_status": 1}
+    ]
+    sym_loads =  [
+        {"id": 12, "node": 3},
+        {"id": 13, "node": 4},
+        {"id": 14, "node": 5}
+    ]
+    source = [
+        {"id": 15, "node": 1}
+    ]
 
-    test = create_graph(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
-
+    test = create_graph(nodes, lines, sym_loads, source)
     # Test if edge 1 is correctly disabled
-    set_edge_enabled_status(test, 1, False)
-    assert is_edge_enabled(test,1) == False
+    set_edge_enabled_status(test, 6, False)
+    assert is_edge_enabled(test,6) == False
 
     # Test if error is raised if chosen edge is already disabled
     with pytest.raises(EdgeAlreadyDisabledError) as output:
-        set_edge_enabled_status(test, 7, False)
-        assert output.value.args[0] == "The chosen edge 7 is already disabled."
+        set_edge_enabled_status(test, 10, False)
+        assert output.value.args[0] == "The chosen edge 10 is already disabled."
+
+    with pytest.raises(EdgeAlreadyDisabledError) as output:
+        set_edge_enabled_status(test, 11, False)
+        assert output.value.args[0] == "The chosen edge 11 is already disabled."
 
     # Test if error is raised if chosen edge is not a valid ID
     with pytest.raises(IDNotFoundError) as output:
-        set_edge_enabled_status(test, 10, False)
-        assert output.value.args[0] == "The chosen edge 10 is not in the ID list."
+        set_edge_enabled_status(test, 999, False)
+        assert output.value.args[0] == "The chosen edge 999 is not in the ID list."
 
     # Test if edge 7 is actually enabled
-    set_edge_enabled_status(test, 7, True)
-    assert is_edge_enabled(test,7) == True
+    set_edge_enabled_status(test, 10, True)
+    assert is_edge_enabled(test, 10) == True
 
 
 def test_find_alternative_edges_err1():
     """
     Tests that alternative edges are found
 
-    0--[1]--2--[9]--10
-    ^
-    |      [7]
-    |
-    ---[3]--4
-    |
-    |      [8]
-    |
-    ---[5]--6
+    15> 1--[6]--2--[7]--3------(12)
+        |
+        |      [10]
+        |
+        ---[8]--4------(13)
+        |
+        |      [11]
+        |
+        ---[9]--5------(14)
 
     """
-    vertex_ids = [0, 2, 4, 6, 10]
-    edge_ids = [1, 3, 5, 7, 8, 9]
-    edge_vertex_id_pairs = [(0, 2), (0, 4), (0, 6), (2, 4), (4, 6), (2, 10)]
-    edge_enabled = [True, True, True, False, False, True]
-    source_vertex_id = 0
 
-    test = create_graph(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    nodes = [
+        {"id": 1, "u_rated": 400},
+        {"id": 2, "u_rated": 400},
+        {"id": 3, "u_rated": 400},
+        {"id": 4, "u_rated": 400},
+        {"id": 5, "u_rated": 400}
+    ]
+    lines =  [
+        {"id": 6, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
+        {"id": 7, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
+        {"id": 8, "from_node": 1, "to_node": 4, "from_status": 1, "to_status": 1},
+        {"id": 9, "from_node": 1, "to_node": 5, "from_status": 1, "to_status": 1},
+        {"id": 10, "from_node": 2, "to_node": 4, "from_status": 0, "to_status": 0},
+        {"id": 11, "from_node": 4, "to_node": 5, "from_status": 0, "to_status": 1}
+    ]
+    sym_loads =  [
+        {"id": 12, "node": 3},
+        {"id": 13, "node": 4},
+        {"id": 14, "node": 5}
+    ]
+    source = [
+        {"id": 15, "node": 1}
+    ]
+
+    test = create_graph(nodes, lines, sym_loads, source)
 
     # tests if found alternative edges for disabled edge input are correct (connect the graph and acyclic)
-    assert find_alternative_edges(test, 1) == [7]
-    assert find_alternative_edges(test, 3) == [7, 8]
-    assert find_alternative_edges(test, 5) == [8]
-    assert find_alternative_edges(test, 9) == []
+
+    assert find_alternative_edges(test, 6) == [10]
+    assert find_alternative_edges(test, 8) == [10, 11]
+    assert find_alternative_edges(test, 9) == [11]
+    assert find_alternative_edges(test, 7) == []
 
     # Test if error is raised if chosen edge is already disabled
     with pytest.raises(EdgeAlreadyDisabledError) as output:
-        find_alternative_edges(test, 7)
-        assert output.value.args[0] == "The chosen edge 7 is already disabled."
+        find_alternative_edges(test, 10)
+        assert output.value.args[0] == "The chosen edge 10 is already disabled."
 
     # Test if error is raised if chosen edge is not a valid ID
     with pytest.raises(IDNotFoundError) as output:
-        find_alternative_edges(test, 10)
-        assert output.value.args[0] == "The chosen edge 10 is not in the ID list."
+        find_alternative_edges(test, 2)
+        assert output.value.args[0] == "The chosen edge 2 is not in the ID list."
