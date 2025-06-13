@@ -214,6 +214,21 @@ def optimum_tap_position(
     pg_copy = copy.deepcopy(power_grid)
     options = get_args(_OPTIMIZATION_CRITERIA)
     assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
+    
+    transformers = pg_copy.power_grid["transformer"]
+    if len(transformers) != 1:
+        raise ValidationError("The LV grid must contain exactly one transformer.")
+    
+    transformer_id = transformers[0]["id"]
+    original_tap = transformers[0].get("tap_pos", 0)
+
+    tap_range = range(-5, 6)
+
+    best_score = float("inf")
+    best_tap = original_tap
+
+
+
 
     # TODO do something with the pg like iterate with different tap positions and return the optimum tap position for the transformer.
 
