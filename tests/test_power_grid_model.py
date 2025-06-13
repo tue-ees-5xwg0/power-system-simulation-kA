@@ -1,10 +1,10 @@
 from contextlib import nullcontext as does_not_raise
 
-import pytest
 import pandas as pd
-
+import pytest
 from power_grid_model import ComponentType
-from power_system_simulation.power_grid_model import TimeSeriesPowerFlow, LoadProfileMismatchError
+
+from power_system_simulation.power_grid_model import LoadProfileMismatchError, TimeSeriesPowerFlow
 
 
 def test_power_grid_model_load_grid_and_data_and_create_model():
@@ -26,7 +26,7 @@ def test_power_grid_model_init_err_load_profile_mismatch():
     time_stamps2 = pd.date_range("2025-02-01", periods=3, freq="h")
 
     p_df = pd.DataFrame(
-         data=[[1.0, 2.0], [1.1, 2.1], [1.2, 2.2]],
+        data=[[1.0, 2.0], [1.1, 2.1], [1.2, 2.2]],
         index=time_stamps1,
         columns=[3, 5],
     )
@@ -38,11 +38,11 @@ def test_power_grid_model_init_err_load_profile_mismatch():
     )
 
     ts.load_data(
-            pgm_path="tests/input_network_data.json",
-            p_df=p_df,
-            q_df=q_df,
-        )
-    
+        pgm_path="tests/input_network_data.json",
+        p_df=p_df,
+        q_df=q_df,
+    )
+
     with pytest.raises(LoadProfileMismatchError, match="Load IDs do not match between p and q profiles."):
         ts.create_model()
 
@@ -53,11 +53,11 @@ def test_power_grid_model_init_err_load_profile_mismatch():
     )
 
     ts.load_data(
-            pgm_path="tests/input_network_data.json",
-            p_df=p_df,
-            q_df=q_df,
-        )
-        
+        pgm_path="tests/input_network_data.json",
+        p_df=p_df,
+        q_df=q_df,
+    )
+
     with pytest.raises(LoadProfileMismatchError, match="Timestamps do not match between p and q profiles."):
         ts.create_model()
 
