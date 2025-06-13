@@ -2,6 +2,8 @@
 This module contains the power grid model and the processing around it in the TimeSeriesPowerFlow class.
 """
 
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 from power_grid_model import (
@@ -22,35 +24,69 @@ class LoadProfileMismatchError(Exception):
     """Raised when the active and reactive load profiles do not align."""
 
 
-
 class TimeSeriesPowerFlow:
     """
     This class contains the processing around the the power-grid-model from the power_grid_model package.
     """
 
-    def __init__(self, pgm_path: str, p_path: str, q_path: str):
+    def __init__(self):
+        self.grid_data = None
+        self.q_profile = None
+        self.p_profile = None
+        self.model = None
+        self.batch_output = None
+        self.voltage_summary = None
+        self.line_summary = None
 
-        # Load grid
+    def load_data(
+        self,
+        pgm_path: str,
+        p_path: Optional[str] = None,
+        q_path: Optional[str] = None,
+        p_df: Optional[pd.DataFrame] = None,
+        q_df: Optional[pd.DataFrame] = None,
+    ):
+        """
+        Loads the power grid structure and associated time series data.
+
+        Parameters:
+            pgm_path : Path to the JSON file containing the power grid model.
+            p_path : Path to the active power (P) profile parquet file.
+            q_path : Path to the reactive power (Q) profile parquet file.
+            p_df : Active power profile as a DataFrame.
+            q_df : Reactive power profile as a DataFrame.
+
+        Either (p_path/q_path) or (p_df/q_df) must be provided. If both sets are
+        provided, the DataFrames take precedence.
+
+        Raises:
+            ValueError: If neither a file path pair nor a DataFrame pair is provided.
+        """
         with open(pgm_path, "r", encoding="utf-8") as file:
             self.grid_data = json_deserialize(file.read())
 
-        # Load profile data
-        self.p_profile = pd.read_parquet(p_path)
-        self.q_profile = pd.read_parquet(q_path)
+        if p_df is not None and q_df is not None:
+            self.p_profile = p_df
+            self.q_profile = q_df
+        elif p_path is not None and q_path is not None:
+            self.p_profile = pd.read_parquet(p_path)
+            self.q_profile = pd.read_parquet(q_path)
+        else:
+            raise ValueError("Either (p_path and q_path) or (p_df and q_df) must be provided")
 
-        # Validate profiles
+    def create_model(self):
+        """
+        Validates the time and ID alignment of the p and q profiles,
+        and initializes the PowerGridModel using the loaded grid data.
+
+        Raises:
+        LoadProfileMismatchError: If the timestamps or load IDs don't match.
+        """
         if not self.p_profile.index.equals(self.q_profile.index):
             raise LoadProfileMismatchError("Timestamps do not match between p and q profiles.")
         if not self.p_profile.columns.equals(self.q_profile.columns):
             raise LoadProfileMismatchError("Load IDs do not match between p and q profiles.")
-
-        # Create model
         self.model = PowerGridModel(self.grid_data)
-
-        # Placeholder for batch output and summaries
-        self.batch_output = None
-        self.voltage_summary = None
-        self.line_summary = None
 
     def run(self):
         """
