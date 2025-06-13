@@ -45,7 +45,7 @@ def test_power_grid_model_init_err_load_profile_mismatch():
     )
 
     ts.load_data(
-        pgm_path="tests/input_network_data.json",
+        pgm_path=pgm_small_path,
         p_df=p_df,
         q_df=q_df,
     )
@@ -60,7 +60,7 @@ def test_power_grid_model_init_err_load_profile_mismatch():
     )
 
     ts.load_data(
-        pgm_path="tests/input_network_data.json",
+        pgm_path=pgm_small_path,
         p_df=p_df,
         q_df=q_df,
     )
@@ -86,11 +86,13 @@ def test_power_grid_model_run_output():
 
 
 def test_get_voltage_summary():
-    ts = TimeSeriesPowerFlow(
+    ts = TimeSeriesPowerFlow()
+    ts.load_data(
         pgm_path=pgm_small_path,
         p_path=p_profile_small_path,
         q_path=q_profile_small_path,
     )
+    ts.create_model()
 
     # test initialized to None
     assert ts.voltage_summary is None
@@ -109,12 +111,13 @@ def test_get_voltage_summary():
 
 
 def test_power_grid_model_get_line_summary():
-
-    ts = TimeSeriesPowerFlow(
+    ts = TimeSeriesPowerFlow()
+    ts.load_data(
         pgm_path=pgm_small_path,
         p_path=p_profile_small_path,
         q_path=q_profile_small_path,
     )
+    ts.create_model()
 
     # test initialized to None
     assert ts.line_summary is None
