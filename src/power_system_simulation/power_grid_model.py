@@ -24,11 +24,12 @@ class NoValidOutputDataError(Exception):
 class LoadProfileMismatchError(Exception):
     """Raised when the active and reactive load profiles do not align."""
 
+
 class TimeSeriesPowerFlow:
     """
     This class contains the processing around the the power-grid-model from the power_grid_model package.
     """
-       
+
     def __init__(self):
         self.grid_data = None
         self.q_profile = None

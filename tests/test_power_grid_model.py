@@ -14,6 +14,7 @@ q_profile_small_path = "tests/test_power_grid_model_data/reactive_power_profile.
 line_summary_small_path = "tests/test_power_grid_model_data/test_line_summary.csv"
 voltage_summary_small_path = "tests/test_power_grid_model_data/test_voltage_summary.csv"
 
+
 def test_power_grid_model_load_grid_and_data_and_create_model():
     ts = TimeSeriesPowerFlow()
     ts.load_data(
@@ -67,6 +68,7 @@ def test_power_grid_model_init_err_load_profile_mismatch():
 
     with pytest.raises(LoadProfileMismatchError, match="Timestamps do not match between p and q profiles."):
         ts.create_model()
+
 
 def test_power_grid_model_run_output():
     ts = TimeSeriesPowerFlow()
