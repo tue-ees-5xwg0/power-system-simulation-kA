@@ -15,36 +15,46 @@ from power_grid_model import (
 )
 from power_grid_model.utils import json_deserialize, json_serialize
 from power_grid_model.validation import assert_valid_batch_data, assert_valid_input_data
-
+from typing import Optional
 
 class LoadProfileMismatchError(Exception):
     """Raised when the active and reactive load profiles do not align."""
 
-    pass
-
 
 class TimeSeriesPowerFlow:
-    def __init__(self, pgm_path: str, p_path: str, q_path: str):
-
-        # Load grid
+    def __init__(self):
+        self.grid_data = None
+        self.q_profile = None
+        self.p_profile = None
+        self.model = None
+        self.batch_output = None
+        
+    def load_data(
+        self,
+        pgm_path: str,
+        p_path: Optional[str] = None,
+        q_path: Optional[str] = None,
+        p_df: Optional[pd.DataFrame] = None,
+        q_df: Optional[pd.DataFrame] = None,
+    ):
         with open(pgm_path, "r") as file:
             self.grid_data = json_deserialize(file.read())
 
-        # Load profile data
-        self.p_profile = pd.read_parquet(p_path)
-        self.q_profile = pd.read_parquet(q_path)
-
-        # Validate profiles
+        if p_df is not None and q_df is not None:
+            self.p_profile = p_df
+            self.q_profile = q_df
+        elif p_path is not None and q_path is not None:
+            self.p_profile = pd.read_parquet(p_path)
+            self.q_profile = pd.read_parquet(q_path)
+        else:
+            raise ValueError("Either (p_path and q_path) or (p_df and q_df) must be provided")
+    
+    def create_model(self):
         if not self.p_profile.index.equals(self.q_profile.index):
             raise LoadProfileMismatchError("Timestamps do not match between p and q profiles.")
         if not self.p_profile.columns.equals(self.q_profile.columns):
             raise LoadProfileMismatchError("Load IDs do not match between p and q profiles.")
-
-        # Create model
         self.model = PowerGridModel(self.grid_data)
-
-        # Placeholder for batch output
-        self.batch_output = None
 
     def run(self):
         # TODO: Create update_data using initialize_array and the profiles
