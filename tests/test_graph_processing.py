@@ -2,188 +2,279 @@ from contextlib import nullcontext as does_not_raise
 
 import pytest
 
-import power_system_simulation.graph_processing as gp
+from power_system_simulation.data_validation import *
+from power_system_simulation.exceptions import *
+from power_system_simulation.graph_processing import (
+    create_graph,
+    filter_disabled_edges,
+    find_alternative_edges,
+    find_downstream_vertices,
+    is_cyclic,
+    is_edge_enabled,
+    set_edge_enabled_status,
+)
 
 
 def test_init_normal():
     """
     Normal initialization of a graph processor, should result in no errors.
 
-    1--[1]--2--[2]--3
+    1--[9]--2--[10]-3------(16)
     ^       |
-           [3]
+    20     [11]
             |
-            4--[4]--5
+            4--[12]-5------(17)
             |
-           [5]
+           [13]
             |
-            6--[6]--7--[7]--8
+            6--[14]-7--[15]-8-----(19)
+                    |
+                   (18)
     """
 
-    vertex_ids = [1, 2, 3, 4, 5, 6, 7, 8]
-    edge_ids = [1, 2, 3, 4, 5, 6, 7]
-    edge_vertex_id_pairs = [(1, 2), (2, 3), (2, 4), (4, 5), (4, 6), (6, 7), (7, 8)]
-    edge_enabled = [True, True, True, True, True, True, True]
-    source_vertex_id = 1
+    nodes = [
+        {"id": 1, "u_rated": 400},
+        {"id": 2, "u_rated": 400},
+        {"id": 3, "u_rated": 400},
+        {"id": 4, "u_rated": 400},
+        {"id": 5, "u_rated": 400},
+        {"id": 6, "u_rated": 400},
+        {"id": 7, "u_rated": 400},
+        {"id": 8, "u_rated": 400},
+    ]
+    lines = [
+        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
+        {"id": 10, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
+        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
+        {"id": 12, "from_node": 4, "to_node": 5, "from_status": 1, "to_status": 1},
+        {"id": 13, "from_node": 4, "to_node": 6, "from_status": 1, "to_status": 1},
+        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
+        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
+    ]
+    sym_loads = [{"id": 16, "node": 3}, {"id": 17, "node": 5}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
+    source = [{"id": 20, "node": 1}]
 
-    gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    create_graph(nodes, lines, sym_loads, source)
 
 
-def test_init_err1_duplicate_vertex_ids():
+def test_init_err1_duplicate_node_ids():
     """
-    Duplicate vertex ids, should raise an IDNotUniqueError.
+    Duplicate node id 4, should raise an IDNotUniqueError.
 
-    1--[1]--2--[2]--3
+    1--[9]--2--[10]-3------(16)
     ^       |
-           [3]
+    20     [11]
             |
-           (4)-[4]-(4)
+            4--[12]-4------(17)
             |
-           [5]
+           [13]
             |
-            6--[6]--7--[7]--8
+            6--[14]-7--[15]-8-----(19)
+                    |
+                   (18)
     """
 
-    vertex_ids = [1, 2, 3, 4, 4, 6, 7, 8]
-    edge_ids = [1, 2, 3, 4, 5, 6, 7]
-    edge_vertex_id_pairs = [(1, 2), (2, 3), (2, 4), (4, 4), (4, 6), (6, 7), (7, 8)]
-    edge_enabled = [True, True, True, True, True, True, True]
-    source_vertex_id = 1
+    nodes = [
+        {"id": 1, "u_rated": 400},
+        {"id": 2, "u_rated": 400},
+        {"id": 3, "u_rated": 400},
+        {"id": 4, "u_rated": 400},
+        {"id": 4, "u_rated": 400},
+        {"id": 6, "u_rated": 400},
+        {"id": 7, "u_rated": 400},
+        {"id": 8, "u_rated": 400},
+    ]
+    lines = [
+        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
+        {"id": 10, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
+        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
+        {"id": 12, "from_node": 4, "to_node": 4, "from_status": 1, "to_status": 1},
+        {"id": 13, "from_node": 4, "to_node": 6, "from_status": 1, "to_status": 1},
+        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
+        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
+    ]
+    sym_loads = [{"id": 16, "node": 3}, {"id": 17, "node": 4}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
+    source = [{"id": 20, "node": 1}]
 
-    with pytest.raises(gp.IDNotUniqueError) as output:
-        gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
-        assert output.value.args[0] == "Input list vertex_ids contains a duplicate id."
+    with pytest.raises(IDNotUniqueError) as output:
+        create_graph(nodes, lines, sym_loads, source)
+    assert output.value.args[0] == "There are components with duplicate IDs."
 
 
-def test_init_err1_duplicate_edge_ids():
+def test_init_err1_duplicate_node_edge():
     """
     Duplicate edge ids, should raise an IDNotUniqueError.
 
-    1--[1]--2--[2]--3
+    1--[9]--2--[7]-3------(16)
     ^       |
-           [3]
+    20     [11]
             |
-            4--[4]--5
+            4--[12]-5------(17)
             |
-           (6)
+           [13]
             |
-            6--(6)--7--[7]--8
+            6--[14]-7--[15]-8-----(19)
+                    |
+                   (18)
     """
 
-    vertex_ids = [1, 2, 3, 4, 5, 6, 7, 8]
-    edge_ids = [1, 2, 3, 4, 6, 6, 7]
-    edge_vertex_id_pairs = [(1, 2), (2, 3), (2, 4), (4, 5), (4, 6), (6, 7), (7, 8)]
-    edge_enabled = [True, True, True, True, True, True, True]
-    source_vertex_id = 1
+    nodes = [
+        {"id": 1, "u_rated": 400},
+        {"id": 2, "u_rated": 400},
+        {"id": 3, "u_rated": 400},
+        {"id": 4, "u_rated": 400},
+        {"id": 5, "u_rated": 400},
+        {"id": 6, "u_rated": 400},
+        {"id": 7, "u_rated": 400},
+        {"id": 8, "u_rated": 400},
+    ]
+    lines = [
+        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
+        {"id": 7, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
+        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
+        {"id": 12, "from_node": 4, "to_node": 5, "from_status": 1, "to_status": 1},
+        {"id": 13, "from_node": 4, "to_node": 6, "from_status": 1, "to_status": 1},
+        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
+        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
+    ]
+    sym_loads = [{"id": 16, "node": 3}, {"id": 17, "node": 5}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
+    source = [{"id": 20, "node": 1}]
 
-    with pytest.raises(gp.IDNotUniqueError) as output:
-        gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
-        assert output.value.args[0] == "Input list edge_ids contains a duplicate id."
+    with pytest.raises(IDNotUniqueError) as output:
+        create_graph(nodes, lines, sym_loads, source)
+    assert output.value.args[0] == "There are components with duplicate IDs."
 
 
-def test_init_err2_id_pair_length_mismatch():
+def test_init_err3_invalid_sym_load_node_id():
     """
-    One of the edges has no edge_vertex_id_pair, or one too many id_pairs is entered and thus should result
-    in a length mismatch error.
+    A sym_load is connected to a non-existent node.
 
-    1--[1]--2  [2]  3
+    1--[9]--2--[7]-3        99------(16)
     ^       |
-           [3]
+    20     [11]
             |
-            4--[4]--5
+            4--[12]-5------(17)
             |
-           [5]
+           [13]
             |
-            6--[6]--7--[7]--8
+            6--[14]-7--[15]-8-----(19)
+                    |
+                   (18)
     """
 
-    vertex_ids = [1, 2, 3, 4, 5, 6, 7, 8]
-    edge_ids = [1, 2, 3, 4, 5, 6, 7]
-    edge_vertex_id_pairs = [(1, 2), (2, 4), (4, 5), (4, 6), (6, 7), (7, 8)]
-    edge_enabled = [True, True, True, True, True, True, True]
-    source_vertex_id = 1
+    nodes = [
+        {"id": 1, "u_rated": 400},
+        {"id": 2, "u_rated": 400},
+        {"id": 3, "u_rated": 400},
+        {"id": 4, "u_rated": 400},
+        {"id": 5, "u_rated": 400},
+        {"id": 6, "u_rated": 400},
+        {"id": 7, "u_rated": 400},
+        {"id": 8, "u_rated": 400},
+    ]
+    lines = [
+        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
+        {"id": 10, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
+        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
+        {"id": 12, "from_node": 4, "to_node": 5, "from_status": 1, "to_status": 1},
+        {"id": 13, "from_node": 4, "to_node": 6, "from_status": 1, "to_status": 1},
+        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
+        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
+    ]
+    sym_loads = [{"id": 16, "node": 99}, {"id": 17, "node": 5}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
+    source = [{"id": 20, "node": 1}]
 
-    with pytest.raises(gp.InputLengthDoesNotMatchError) as output:
-        gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
-        assert output.value.args[0] == "The length of edge_ids does not match the length of edge_vertex_id_pairs."
+    with pytest.raises(IDNotFoundError) as output:
+        create_graph(nodes, lines, sym_loads, source)
+    assert output.value.args[0] == "Sym_load(s) contain(s) non-existent node ID."
 
 
-def test_init_err3_invalid_id_pair_id():
+def test_init_err3_invalid_edge_node_id():
     """
-    An edge_vertex_id_pair is referring to a non-existent vertex.
+    A line is connected to a non-existent node.
 
-    1--[1]--2--[2]--3
+    1--[9]--2--[10]-3------(16)
     ^       |
-           [3]   (9)
+    20     [11]   /--16
             |    /
-            4--[4]  5
+            4--[12]  5------(17)
             |
-           [5]
+           [13]
             |
-            6--[6]--7--[7]--8
+            6--[14]-7--[15]-8-----(19)
+                    |
+                   (18)
     """
 
-    vertex_ids = [1, 2, 3, 4, 5, 6, 7, 8]
-    edge_ids = [1, 2, 3, 4, 5, 6, 7]
-    edge_vertex_id_pairs = [(1, 2), (2, 3), (2, 4), (4, 9), (4, 6), (6, 7), (7, 8)]
-    edge_enabled = [True, True, True, True, True, True, True]
-    source_vertex_id = 1
+    nodes = [
+        {"id": 1, "u_rated": 400},
+        {"id": 2, "u_rated": 400},
+        {"id": 3, "u_rated": 400},
+        {"id": 4, "u_rated": 400},
+        {"id": 5, "u_rated": 400},
+        {"id": 6, "u_rated": 400},
+        {"id": 7, "u_rated": 400},
+        {"id": 8, "u_rated": 400},
+    ]
+    lines = [
+        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
+        {"id": 10, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
+        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
+        {"id": 12, "from_node": 4, "to_node": 21, "from_status": 1, "to_status": 1},
+        {"id": 13, "from_node": 4, "to_node": 6, "from_status": 1, "to_status": 1},
+        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
+        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
+    ]
+    sym_loads = [{"id": 16, "node": 3}, {"id": 17, "node": 5}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
+    source = [{"id": 20, "node": 1}]
 
-    with pytest.raises(gp.IDNotFoundError) as output:
-        gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
-        assert output.value.args[0] == "edge_vertex_id_pairs contains a non-existent vertex ID."
-
-
-def test_init_err4_edge_enabled_length_mismatch():
-    """
-    The edge_enabled list contains too many or few entries, and should thus return a length mismatch error.
-
-    1--[1]--2--[2]--3
-    ^       |
-           [3]
-            |
-            4--[4]--5
-            |
-           [5]
-            |
-            6--[6]--7--[7]--8
-    """
-
-    vertex_ids = [1, 2, 3, 4, 5, 6, 7, 8]
-    edge_ids = [1, 2, 3, 4, 5, 6, 7]
-    edge_vertex_id_pairs = [(1, 2), (2, 3), (2, 4), (4, 5), (4, 6), (6, 7), (7, 8)]
-    edge_enabled = [True, True, True, True, True, True, True, True]
-    source_vertex_id = 1
-
-    with pytest.raises(gp.InputLengthDoesNotMatchError) as output:
-        gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
-        assert output.value.args[0] == "The length of edge_ids does not match the length of edge_enabled."
+    with pytest.raises(IDNotFoundError) as output:
+        create_graph(nodes, lines, sym_loads, source)
+    assert output.value.args[0] == "Line(s) contain(s) non-existent node ID."
 
 
-def test_init_err5_invalid_source_id():
+def test_init_err5_invalid_source_node_id():
     """
     The source ID is invalid.
 
-    1--[1]--2--[2]--3
+    1--[9]--2--[10]-3------(16)     21
+            |                       ^
+           [11]                     20
             |
-    (9)    [3]
-     ^      |
-            4--[4]--5
+            4--[12]-5------(17)
             |
-           [5]
+           [13]
             |
-            6--[6]--7--[7]--8
+            6--[14]-7--[15]-8-----(19)
+                    |
+                   (18)
     """
 
-    vertex_ids = [1, 2, 3, 4, 5, 6, 7, 8]
-    edge_ids = [1, 2, 3, 4, 5, 6, 7]
-    edge_vertex_id_pairs = [(1, 2), (2, 3), (2, 4), (4, 5), (4, 6), (6, 7), (7, 8)]
-    edge_enabled = [True, True, True, True, True, True, True]
-    source_vertex_id = 9
+    nodes = [
+        {"id": 1, "u_rated": 400},
+        {"id": 2, "u_rated": 400},
+        {"id": 3, "u_rated": 400},
+        {"id": 4, "u_rated": 400},
+        {"id": 5, "u_rated": 400},
+        {"id": 6, "u_rated": 400},
+        {"id": 7, "u_rated": 400},
+        {"id": 8, "u_rated": 400},
+    ]
+    lines = [
+        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
+        {"id": 10, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
+        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
+        {"id": 12, "from_node": 4, "to_node": 5, "from_status": 1, "to_status": 1},
+        {"id": 13, "from_node": 4, "to_node": 6, "from_status": 1, "to_status": 1},
+        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
+        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
+    ]
+    sym_loads = [{"id": 16, "node": 3}, {"id": 17, "node": 5}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
+    source = [{"id": 20, "node": 21}]
 
-    with pytest.raises(gp.IDNotFoundError) as output:
-        gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
-        assert output.value.args[0] == "The provided source_vertex_id is not in the vertex_ids list."
+    with pytest.raises(IDNotFoundError) as output:
+        create_graph(nodes, lines, sym_loads, source)
+    assert output.value.args[0] == "The provided source_node_id is not in the node list."
 
 
 def test_init_err6_graph_not_connected_error():
@@ -191,26 +282,43 @@ def test_init_err6_graph_not_connected_error():
     One of the edges is missing, causing the graph to not be fully connected. Should raise a
     GraphNotFullyConnectedError.
 
-    1--[1]--2--[2]--3
+    1--[9]--2--[10]-3------(16)
     ^       |
-           [3]
+    20     [11]
             |
-            4--[4]--5
+            4--[12]-5------(17)
 
 
 
-            6--[6]--7--[7]--8
+            6--[14]-7--[15]-8-----(19)
+                    |
+                   (18)
     """
 
-    vertex_ids = [1, 2, 3, 4, 5, 6, 7, 8]
-    edge_ids = [1, 2, 3, 4, 6, 7]
-    edge_vertex_id_pairs = [(1, 2), (2, 3), (2, 4), (4, 5), (6, 7), (7, 8)]
-    edge_enabled = [True, True, True, True, True, True]
-    source_vertex_id = 1
+    nodes = [
+        {"id": 1, "u_rated": 400},
+        {"id": 2, "u_rated": 400},
+        {"id": 3, "u_rated": 400},
+        {"id": 4, "u_rated": 400},
+        {"id": 5, "u_rated": 400},
+        {"id": 6, "u_rated": 400},
+        {"id": 7, "u_rated": 400},
+        {"id": 8, "u_rated": 400},
+    ]
+    lines = [
+        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
+        {"id": 10, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
+        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
+        {"id": 12, "from_node": 4, "to_node": 5, "from_status": 1, "to_status": 1},
+        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
+        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
+    ]
+    sym_loads = [{"id": 16, "node": 3}, {"id": 17, "node": 5}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
+    source = [{"id": 20, "node": 1}]
 
-    with pytest.raises(gp.GraphNotFullyConnectedError) as output:
-        gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
-        assert output.value.args[0] == "The graph is not fully connected."
+    with pytest.raises(GraphNotFullyConnectedError) as output:
+        create_graph(nodes, lines, sym_loads, source)
+    assert output.value.args[0] == "The graph is not fully connected."
 
 
 def test_init_err6_graph_not_connected_disabled_error():
@@ -218,52 +326,89 @@ def test_init_err6_graph_not_connected_disabled_error():
     One of the edges is disabled, causing the graph to not be fully connected. Should raise a
     GraphNotFullyConnectedError.
 
-    1--[1]--2--[2]--3
-    ^       |
-           [3]
+    1--[9]--2--[10]-3------(16)
+    ^
+    20     [11]
+
+            4--[12]-5------(17)
             |
-            4--[4]--5
-
-           [5]
-
-            6--[6]--7--[7]--8
+           [13]
+            |
+            6--[14]-7--[15]-8-----(19)
+                    |
+                   (18)
     """
 
-    vertex_ids = [1, 2, 3, 4, 5, 6, 7, 8]
-    edge_ids = [1, 2, 3, 4, 5, 6, 7]
-    edge_vertex_id_pairs = [(1, 2), (2, 3), (2, 4), (4, 5), (4, 6), (6, 7), (7, 8)]
-    edge_enabled = [True, True, True, True, False, True, True]
-    source_vertex_id = 1
+    nodes = [
+        {"id": 1, "u_rated": 400},
+        {"id": 2, "u_rated": 400},
+        {"id": 3, "u_rated": 400},
+        {"id": 4, "u_rated": 400},
+        {"id": 5, "u_rated": 400},
+        {"id": 6, "u_rated": 400},
+        {"id": 7, "u_rated": 400},
+        {"id": 8, "u_rated": 400},
+    ]
+    lines = [
+        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
+        {"id": 10, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
+        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 0, "to_status": 1},
+        {"id": 12, "from_node": 4, "to_node": 5, "from_status": 1, "to_status": 1},
+        {"id": 13, "from_node": 4, "to_node": 6, "from_status": 1, "to_status": 1},
+        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
+        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
+    ]
+    sym_loads = [{"id": 16, "node": 3}, {"id": 17, "node": 5}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
+    source = [{"id": 20, "node": 1}]
 
-    with pytest.raises(gp.GraphNotFullyConnectedError) as output:
-        gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
-        assert output.value.args[0] == "The graph is not fully connected."
+    with pytest.raises(GraphNotFullyConnectedError) as output:
+        create_graph(nodes, lines, sym_loads, source)
+    assert output.value.args[0] == "The graph is not fully connected."
 
 
 def test_init_err7_graph_contains_cycle_error():
     """
     The graph contains a cycle, which is not allowed. This should raise a GraphCycleError.
 
-    1--[1]--2--[2]--3
-    ^       |
-           [3]
+    1--[9]--2--[10]-3------(16)
+    ^       |       |
+    20     [11]    [21]
+            |       |
+            4--[12]-5------(17)
             |
-            4--[4]--5
-            |       |
-           [5]     [8]
-            |       |
-            6--[6]--7--[7]--8
+           [13]
+            |
+            6--[14]-7--[15]-8-----(19)
+                    |
+                   (18)
     """
 
-    vertex_ids = [1, 2, 3, 4, 5, 6, 7, 8]
-    edge_ids = [1, 2, 3, 4, 5, 6, 7, 8]
-    edge_vertex_id_pairs = [(1, 2), (2, 3), (2, 4), (4, 5), (4, 6), (6, 7), (7, 8), (5, 7)]
-    edge_enabled = [True, True, True, True, True, True, True, True]
-    source_vertex_id = 1
+    nodes = [
+        {"id": 1, "u_rated": 400},
+        {"id": 2, "u_rated": 400},
+        {"id": 3, "u_rated": 400},
+        {"id": 4, "u_rated": 400},
+        {"id": 5, "u_rated": 400},
+        {"id": 6, "u_rated": 400},
+        {"id": 7, "u_rated": 400},
+        {"id": 8, "u_rated": 400},
+    ]
+    lines = [
+        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
+        {"id": 10, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
+        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
+        {"id": 12, "from_node": 4, "to_node": 5, "from_status": 1, "to_status": 1},
+        {"id": 13, "from_node": 4, "to_node": 6, "from_status": 1, "to_status": 1},
+        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
+        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
+        {"id": 21, "from_node": 3, "to_node": 5, "from_status": 1, "to_status": 1},
+    ]
+    sym_loads = [{"id": 16, "node": 3}, {"id": 17, "node": 5}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
+    source = [{"id": 20, "node": 1}]
 
-    with pytest.raises(gp.GraphCycleError) as output:
-        gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
-        assert output.value.args[0] == "The graph contains a cycle."
+    with pytest.raises(GraphCycleError) as output:
+        create_graph(nodes, lines, sym_loads, source)
+    assert output.value.args[0] == "The graph contains a cycle."
 
 
 def test_init_err7_graph_contains_cycle_disabled_error():
@@ -271,129 +416,189 @@ def test_init_err7_graph_contains_cycle_disabled_error():
     The graph contains a cycle, but the cycle is broken by a disabled edge, which is allowed. This should not raise
     an error.
 
-    1--[1]--2--[2]--3
+    1--[9]--2--[10]-3------(16)
     ^       |
-           [3]
+    20     [11]    [21]
             |
-            4--[4]--5
+            4--[12]-5------(17)
             |
-           [5]     [8]
+           [13]
             |
-            6--[6]--7--[7]--8
+            6--[14]-7--[15]-8-----(19)
+                    |
+                   (18)
     """
 
-    vertex_ids = [1, 2, 3, 4, 5, 6, 7, 8]
-    edge_ids = [1, 2, 3, 4, 5, 6, 7, 8]
-    edge_vertex_id_pairs = [(1, 2), (2, 3), (2, 4), (4, 5), (4, 6), (6, 7), (7, 8), (5, 7)]
-    edge_enabled = [True, True, True, True, True, True, True, False]
-    source_vertex_id = 1
+    nodes = [
+        {"id": 1, "u_rated": 400},
+        {"id": 2, "u_rated": 400},
+        {"id": 3, "u_rated": 400},
+        {"id": 4, "u_rated": 400},
+        {"id": 5, "u_rated": 400},
+        {"id": 6, "u_rated": 400},
+        {"id": 7, "u_rated": 400},
+        {"id": 8, "u_rated": 400},
+    ]
+    lines = [
+        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
+        {"id": 10, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
+        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
+        {"id": 12, "from_node": 4, "to_node": 5, "from_status": 1, "to_status": 1},
+        {"id": 13, "from_node": 4, "to_node": 6, "from_status": 1, "to_status": 1},
+        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
+        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
+        {"id": 21, "from_node": 3, "to_node": 5, "from_status": 1, "to_status": 0},
+    ]
+    sym_loads = [{"id": 16, "node": 3}, {"id": 17, "node": 5}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
+    source = [{"id": 20, "node": 1}]
 
-    gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    create_graph(nodes, lines, sym_loads, source)
 
 
 def test_is_edge_enabled():
     """
     The chosen edge is either enabled or disabled, or not a valid edge_id.
 
-    0--[1]--2--[9]--10
-    ^
-    |      [7]
-    |
-    ---[3]--4
-    |
-    |      [8]
-    |
-    ---[5]--6
+    15> 1--[6]--2--[7]--3------(12)
+        |
+        |      [10]
+        |
+        ---[8]--4------(13)
+        |
+        |      [11]
+        |
+        ---[9]--5------(14)
 
     """
 
-    vertex_ids = [0, 2, 4, 6, 10]
-    edge_ids = [1, 3, 5, 7, 8, 9]
-    edge_vertex_id_pairs = [(0, 2), (0, 4), (0, 6), (2, 4), (4, 6), (2, 10)]
-    edge_enabled = [True, True, True, False, False, True]
-    source_vertex_id = 0
+    nodes = [
+        {"id": 1, "u_rated": 400},
+        {"id": 2, "u_rated": 400},
+        {"id": 3, "u_rated": 400},
+        {"id": 4, "u_rated": 400},
+        {"id": 5, "u_rated": 400},
+    ]
+    lines = [
+        {"id": 6, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
+        {"id": 7, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
+        {"id": 8, "from_node": 1, "to_node": 4, "from_status": 1, "to_status": 1},
+        {"id": 9, "from_node": 1, "to_node": 5, "from_status": 1, "to_status": 1},
+        {"id": 10, "from_node": 2, "to_node": 4, "from_status": 0, "to_status": 0},
+        {"id": 11, "from_node": 4, "to_node": 5, "from_status": 0, "to_status": 0},
+    ]
+    sym_loads = [{"id": 12, "node": 3}, {"id": 13, "node": 4}, {"id": 14, "node": 5}]
+    source = [{"id": 15, "node": 1}]
 
-    test = gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    test = create_graph(nodes, lines, sym_loads, source)
 
     # Test if edges are enabled or disabled
-    assert test.is_edge_enabled(3) == True
-    assert test.is_edge_enabled(7) == False
+    assert is_edge_enabled(test, 7) == True
+    assert is_edge_enabled(test, 10) == False
 
     # Test if error is raised if chosen edge is not a valid ID
-    with pytest.raises(gp.IDNotFoundError) as output:
-        test.is_edge_enabled(10)
-        assert output.value.args[0] == "The chosen edge 10 is not in the ID list."
+    with pytest.raises(IDNotFoundError) as output:
+        is_edge_enabled(test, 12)
+    assert output.value.args[0] == "The provided edge 12 is not in the ID list."
 
 
 def test_find_downstream_vertices_normal_case():
     """
     Test normal case where edge is enabled and has downstream vertices.
 
-    1--[1]--2--[2]--3
+    1--[6]--2--[7]--3------(10)
     ^       |
-           [3]
+    12     [8]
             |
-            4--[4]--5
+            4--[9]--5------(11)
     """
 
-    vertex_ids = [1, 2, 3, 4, 5]
-    edge_ids = [1, 2, 3, 4]
-    edge_vertex_id_pairs = [(1, 2), (2, 3), (2, 4), (4, 5)]
-    edge_enabled = [True, True, True, True]
-    source_vertex_id = 1
+    nodes = [
+        {"id": 1, "u_rated": 400},
+        {"id": 2, "u_rated": 400},
+        {"id": 3, "u_rated": 400},
+        {"id": 4, "u_rated": 400},
+        {"id": 5, "u_rated": 400},
+    ]
+    lines = [
+        {"id": 6, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
+        {"id": 7, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
+        {"id": 8, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
+        {"id": 9, "from_node": 4, "to_node": 5, "from_status": 1, "to_status": 1},
+    ]
+    sym_loads = [{"id": 10, "node": 3}, {"id": 11, "node": 5}]
+    source = [{"id": 12, "node": 1}]
 
-    graph = gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    test = create_graph(nodes, lines, sym_loads, source)
 
     # Test edge 1 (1-2) - downstream should be 2,3,4,5
-    assert sorted(graph.find_downstream_vertices(1)) == [2, 3, 4, 5]
+    assert sorted(find_downstream_vertices(test, 6)) == [2, 3, 4, 5]
 
     # Test edge 2 (2-3) - downstream should be 3
-    assert graph.find_downstream_vertices(2) == [3]
+    assert find_downstream_vertices(test, 7) == [3]
 
     # Test edge 3 (2-4) - downstream should be 4,5
-    assert sorted(graph.find_downstream_vertices(3)) == [4, 5]
+    assert sorted(find_downstream_vertices(test, 8)) == [4, 5]
 
     # Test edge 4 (4-5) - downstream should be 5
-    assert graph.find_downstream_vertices(4) == [5]
+    assert find_downstream_vertices(test, 9) == [5]
 
 
 def test_find_downstream_vertices_disabled_case():
     """
-    Test for downstream vertices
+    Test for downstream vertices.
 
-    0--[1]--2--[9]--10
-    ^
-    |      [7]
-    |
-    ---[3]--4
-    |
-    |      [8]
-    |
-    ---[5]--6
+    15> 1--[6]--2--[7]--3------(12)
+        |
+        |      [10]
+        |
+        ---[8]--4------(13)
+        |
+        |      [11]
+        |
+        ---[9]--5------(14)
 
     """
 
-    vertex_ids = [0, 2, 4, 6, 10]
-    edge_ids = [1, 3, 5, 7, 8, 9]
-    edge_vertex_id_pairs = [(0, 2), (0, 4), (0, 6), (2, 4), (4, 6), (2, 10)]
-    edge_enabled = [True, True, True, False, False, True]
-    source_vertex_id = 0
+    nodes = [
+        {"id": 1, "u_rated": 400},
+        {"id": 2, "u_rated": 400},
+        {"id": 3, "u_rated": 400},
+        {"id": 4, "u_rated": 400},
+        {"id": 5, "u_rated": 400},
+    ]
+    lines = [
+        {"id": 6, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
+        {"id": 7, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
+        {"id": 8, "from_node": 1, "to_node": 4, "from_status": 1, "to_status": 1},
+        {"id": 9, "from_node": 1, "to_node": 5, "from_status": 1, "to_status": 1},
+        {"id": 10, "from_node": 2, "to_node": 4, "from_status": 0, "to_status": 0},
+        {"id": 11, "from_node": 4, "to_node": 5, "from_status": 0, "to_status": 0},
+    ]
+    sym_loads = [{"id": 12, "node": 3}, {"id": 13, "node": 4}, {"id": 14, "node": 5}]
+    source = [{"id": 15, "node": 1}]
 
-    graph = gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    test = create_graph(nodes, lines, sym_loads, source)
 
-    # Source node 0
-    assert sorted(graph.find_downstream_vertices(1)) == [2, 10]
-    assert graph.find_downstream_vertices(9) == [10]
-    assert graph.find_downstream_vertices(7) == []
+    # Source node 1
+    assert sorted(find_downstream_vertices(test, 6)) == [2, 3]
+    assert find_downstream_vertices(test, 9) == [5]
+    assert find_downstream_vertices(test, 7) == [3]
+    assert find_downstream_vertices(test, 10) == []
 
     # Invalid edge_id
-    with pytest.raises(gp.IDNotFoundError) as output:
-        graph.find_downstream_vertices(2)
-        assert output.value.args[0] == "The provided ID is not in the edge_ids list."
+    with pytest.raises(IDNotFoundError) as output:
+        find_downstream_vertices(test, 2)
+    assert output.value.args[0] == "The provided edge 2 is not in the ID list."
 
-    # Source node 10
-    graph.source_vertex_id = 10
-    assert sorted(graph.find_downstream_vertices(9)) == [0, 2, 4, 6]
+    # Source node 4
+    test.graph["source_node_id"] = 4
+    assert sorted(find_downstream_vertices(test, 8)) == [1, 2, 3, 5]
+
+    # Invalid source_node_id
+    test.graph["source_node_id"] = 99
+    with pytest.raises(IDNotFoundError) as output:
+        find_downstream_vertices(test, 6)
+    assert output.value.args[0] == "source_node_id is non-existent."
 
 
 def test_edge_set_to_correct_enabled_status():
@@ -401,80 +606,109 @@ def test_edge_set_to_correct_enabled_status():
     Tests that the edge is correctly set to enabled or disabled
     and an error is given if edge is already disabled or not a valid id.
 
-    0--[1]--2--[9]--10
-    ^
-    |      [7]
-    |
-    ---[3]--4
-    |
-    |      [8]
-    |
-    ---[5]--6
+    15> 1--[6]--2--[7]--3------(12)
+        |
+        |      [10]
+        |
+        ---[8]--4------(13)
+        |
+        |      [11]
+        |
+        ---[9]--5------(14)
 
     """
 
-    vertex_ids = [0, 2, 4, 6, 10]
-    edge_ids = [1, 3, 5, 7, 8, 9]
-    edge_vertex_id_pairs = [(0, 2), (0, 4), (0, 6), (2, 4), (4, 6), (2, 10)]
-    edge_enabled = [True, True, True, False, False, True]
-    source_vertex_id = 0
+    nodes = [
+        {"id": 1, "u_rated": 400},
+        {"id": 2, "u_rated": 400},
+        {"id": 3, "u_rated": 400},
+        {"id": 4, "u_rated": 400},
+        {"id": 5, "u_rated": 400},
+    ]
+    lines = [
+        {"id": 6, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
+        {"id": 7, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
+        {"id": 8, "from_node": 1, "to_node": 4, "from_status": 1, "to_status": 1},
+        {"id": 9, "from_node": 1, "to_node": 5, "from_status": 1, "to_status": 1},
+        {"id": 10, "from_node": 2, "to_node": 4, "from_status": 0, "to_status": 0},
+        {"id": 11, "from_node": 4, "to_node": 5, "from_status": 0, "to_status": 1},
+    ]
+    sym_loads = [{"id": 12, "node": 3}, {"id": 13, "node": 4}, {"id": 14, "node": 5}]
+    source = [{"id": 15, "node": 1}]
 
-    test = gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
-
+    test = create_graph(nodes, lines, sym_loads, source)
     # Test if edge 1 is correctly disabled
-    gp.set_edge_enabled_status(test, 1, False)
-    assert test.is_edge_enabled(1) == False
+    set_edge_enabled_status(test, 6, False)
+    assert is_edge_enabled(test, 6) == False
 
     # Test if error is raised if chosen edge is already disabled
-    with pytest.raises(gp.EdgeAlreadyDisabledError) as output:
-        gp.set_edge_enabled_status(test, 7, False)
-        assert output.value.args[0] == "The chosen edge 7 is already disabled."
+    with pytest.raises(EdgeAlreadyDisabledError) as output:
+        set_edge_enabled_status(test, 10, False)
+    assert output.value.args[0] == "The chosen edge 10 is already disabled."
+
+    with pytest.raises(EdgeAlreadyDisabledError) as output:
+        set_edge_enabled_status(test, 11, False)
+    assert output.value.args[0] == "The chosen edge 11 is already disabled."
 
     # Test if error is raised if chosen edge is not a valid ID
-    with pytest.raises(gp.IDNotFoundError) as output:
-        gp.set_edge_enabled_status(test, 10, False)
-        assert output.value.args[0] == "The chosen edge 10 is not in the ID list."
+    with pytest.raises(IDNotFoundError) as output:
+        set_edge_enabled_status(test, 999, False)
+    assert output.value.args[0] == "The chosen edge 999 is not in the ID list."
 
     # Test if edge 7 is actually enabled
-    gp.set_edge_enabled_status(test, 7, True)
-    assert test.is_edge_enabled(7) == True
+    set_edge_enabled_status(test, 10, True)
+    assert is_edge_enabled(test, 10) == True
 
 
 def test_find_alternative_edges_err1():
     """
     Tests that alternative edges are found
 
-    0--[1]--2--[9]--10
-    ^
-    |      [7]
-    |
-    ---[3]--4
-    |
-    |      [8]
-    |
-    ---[5]--6
+    15> 1--[6]--2--[7]--3------(12)
+        |
+        |      [10]
+        |
+        ---[8]--4------(13)
+        |
+        |      [11]
+        |
+        ---[9]--5------(14)
 
     """
-    vertex_ids = [0, 2, 4, 6, 10]
-    edge_ids = [1, 3, 5, 7, 8, 9]
-    edge_vertex_id_pairs = [(0, 2), (0, 4), (0, 6), (2, 4), (4, 6), (2, 10)]
-    edge_enabled = [True, True, True, False, False, True]
-    source_vertex_id = 0
 
-    test = gp.GraphProcessor(vertex_ids, edge_ids, edge_vertex_id_pairs, edge_enabled, source_vertex_id)
+    nodes = [
+        {"id": 1, "u_rated": 400},
+        {"id": 2, "u_rated": 400},
+        {"id": 3, "u_rated": 400},
+        {"id": 4, "u_rated": 400},
+        {"id": 5, "u_rated": 400},
+    ]
+    lines = [
+        {"id": 6, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
+        {"id": 7, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
+        {"id": 8, "from_node": 1, "to_node": 4, "from_status": 1, "to_status": 1},
+        {"id": 9, "from_node": 1, "to_node": 5, "from_status": 1, "to_status": 1},
+        {"id": 10, "from_node": 2, "to_node": 4, "from_status": 0, "to_status": 0},
+        {"id": 11, "from_node": 4, "to_node": 5, "from_status": 0, "to_status": 1},
+    ]
+    sym_loads = [{"id": 12, "node": 3}, {"id": 13, "node": 4}, {"id": 14, "node": 5}]
+    source = [{"id": 15, "node": 1}]
+
+    test = create_graph(nodes, lines, sym_loads, source)
 
     # tests if found alternative edges for disabled edge input are correct (connect the graph and acyclic)
-    assert test.find_alternative_edges(1) == [7]
-    assert test.find_alternative_edges(3) == [7, 8]
-    assert test.find_alternative_edges(5) == [8]
-    assert test.find_alternative_edges(9) == []
+
+    assert find_alternative_edges(test, 6) == [10]
+    assert find_alternative_edges(test, 8) == [10, 11]
+    assert find_alternative_edges(test, 9) == [11]
+    assert find_alternative_edges(test, 7) == []
 
     # Test if error is raised if chosen edge is already disabled
-    with pytest.raises(gp.EdgeAlreadyDisabledError) as output:
-        test.find_alternative_edges(7)
-        assert output.value.args[0] == "The chosen edge 7 is already disabled."
+    with pytest.raises(EdgeAlreadyDisabledError) as output:
+        find_alternative_edges(test, 10)
+    assert output.value.args[0] == "The chosen edge 10 is already disabled."
 
     # Test if error is raised if chosen edge is not a valid ID
-    with pytest.raises(gp.IDNotFoundError) as output:
-        test.find_alternative_edges(10)
-        assert output.value.args[0] == "The chosen edge 10 is not in the ID list."
+    with pytest.raises(IDNotFoundError) as output:
+        find_alternative_edges(test, 2)
+    assert output.value.args[0] == "The chosen edge 2 is not in the ID list."
