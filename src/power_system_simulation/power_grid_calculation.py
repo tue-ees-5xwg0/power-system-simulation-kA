@@ -22,6 +22,7 @@ from power_system_simulation.exceptions import (
     NoValidOutputDataError,
     ValidationError,
 )
+from power_system_simulation.graph_processing import *
 
 _OPTIMIZATION_CRITERIA = Literal["minimal_deviation_u_pu", "minimal_energy_loss"]
 
@@ -36,6 +37,7 @@ class PowerGrid:
         self.power_grid = None
         self.load_grid_json(power_grid_path)
         self.model = PowerGridModel(self.power_grid)
+        # self.graph = create_graph(self.power_grid.node, self.power_grid.line, self.power_grid.)
 
         self.p_profile = None
         self.q_profile = None
@@ -200,31 +202,31 @@ class PowerGrid:
         return output
 
 
-def ev_penetration_level(power_grid: PowerGrid, ev_charging_profile_path: str, penetration_level: float):
-    pg_copy = copy.deepcopy(power_grid)
+# def ev_penetration_level(power_grid: PowerGrid, ev_charging_profile_path: str, penetration_level: float):
+#     pg_copy = copy.deepcopy(power_grid)
 
-    # TODO do something with the pg to randomly distribute ev chargers from the ev
+#     # TODO do something with the pg to randomly distribute ev chargers from the ev
 
-    return [pg_copy.voltage_summary, pg_copy.line_summary]
-
-
-def optimum_tap_position(
-    power_grid: PowerGrid, optimization_criterium: _OPTIMIZATION_CRITERIA = "minimal_deviation_u_pu"
-):
-    pg_copy = copy.deepcopy(power_grid)
-    options = get_args(_OPTIMIZATION_CRITERIA)
-    assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
-
-    # TODO do something with the pg like iterate with different tap positions and return the optimum tap position for the transformer.
-
-    return optimum_tap_position
+#     return [pg_copy.voltage_summary, pg_copy.line_summary]
 
 
-def n_1_calculation(power_grid: PowerGrid):
-    pg_copy = copy.deepcopy(power_grid)
-    output = pd.DataFrame()
+# def optimum_tap_position(
+#     power_grid: PowerGrid, optimization_criterium: _OPTIMIZATION_CRITERIA = "minimal_deviation_u_pu"
+# ):
+#     pg_copy = copy.deepcopy(power_grid)
+#     options = get_args(_OPTIMIZATION_CRITERIA)
+#     assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
 
-    # TODO create alternative power_grids, one for each different alternative line. Summarize the results into the output table. Use
-    # the graph_processor to find out which lines to use.
+#     # TODO do something with the pg like iterate with different tap positions and return the optimum tap position for the transformer.
 
-    return output
+#     return optimum_tap_position
+
+
+# def n_1_calculation(power_grid: PowerGrid):
+#     pg_copy = copy.deepcopy(power_grid)
+#     output = pd.DataFrame()
+
+#     # TODO create alternative power_grids, one for each different alternative line. Summarize the results into the output table. Use
+#     # the graph_processor to find out which lines to use.
+
+#     return output
