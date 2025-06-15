@@ -3,78 +3,132 @@ This is a file containing the GraphProcessor object class to process the power g
 """
 
 import copy
-from typing import List, Tuple
+from typing import List
 
 import networkx as nx
 
-from power_system_simulation.data_validation import *
-from power_system_simulation.exceptions import *
+from power_system_simulation.data_validation import is_edge_enabled
+from power_system_simulation.exceptions import (
+    EdgeAlreadyDisabledError,
+    GraphCycleError,
+    GraphNotFullyConnectedError,
+    IDNotFoundError,
+)
 
 
-def create_graph(
-    vertex_ids: List[int],
-    edge_ids: List[int],
-    edge_vertex_id_pairs: List[Tuple[int, int]],
-    edge_enabled: List[bool],
-    source_vertex_id: int,
-) -> nx.Graph:
-    if has_duplicate_ids(vertex_ids):
-        raise IDNotUniqueError("Input list vertex_ids contains a duplicate id.")
-    if has_duplicate_ids(edge_ids):
-        raise IDNotUniqueError("Input list edge_ids contains a duplicate id.")
-    if not has_same_length(edge_ids, edge_vertex_id_pairs):
-        raise InputLengthDoesNotMatchError("The length of edge_ids does not match the length of edge_vertex_id_pairs.")
-    if not has_vertex_ids(vertex_ids, edge_vertex_id_pairs):
-        raise IDNotFoundError("edge_vertex_id_pairs contains a non-existent vertex ID.")
-    if not has_same_length(edge_ids, edge_enabled):
-        raise InputLengthDoesNotMatchError("The length of edge_ids does not match the length of edge_enabled.")
-    if not has_id(vertex_ids, source_vertex_id):
-        raise IDNotFoundError("The provided source_vertex_id is not in the vertex_ids list.")
+def create_graph(power_grid) -> nx.Graph:
+    """
+    This function is used to create a graph object from the NetworkX package which can be used to run checks and
+    edits on the griddata. Input data should be in PGM format from the power-grid-model package. It should
+    contain node, lines, sym_loads and exactly one transformer and source node.
+    """
 
-    G = nx.Graph()
-    G.add_nodes_from(vertex_ids)
-    for i, (u, v) in enumerate(edge_vertex_id_pairs):
-        G.add_edge(u, v, id=edge_ids[i], enabled=edge_enabled[i])
-    G.graph["source_vertex_id"] = source_vertex_id
+    nodes = power_grid["node"]
+    lines = power_grid["line"]
+    source = power_grid["source"]
+    sym_loads = power_grid["sym_load"]
+    transformer = power_grid["transformer"]
 
-    filtered = filter_disabled_edges(G)
+    graph = nx.Graph()
+
+    for node in nodes:
+        graph.add_node(node["id"], type="node", u_rated=node["u_rated"])
+
+    graph.add_edge(
+        transformer["from_node"][0],
+        transformer["to_node"][0],
+        id=transformer["id"][0],
+        type="transformer",
+        from_status=transformer["from_status"][0],
+        to_status=transformer["to_status"][0],
+    )
+
+    for line in lines:
+        graph.add_edge(
+            line["from_node"],
+            line["to_node"],
+            id=line["id"],
+            type="line",
+            from_status=line["from_status"],
+            to_status=line["to_status"],
+        )
+
+    for sym_load in sym_loads:
+        graph.add_node(sym_load["id"], type="sym_load")
+        graph.add_edge(sym_load["id"], sym_load["node"], type="sym_load")
+
+    graph.graph["source_node_id"] = source[0]["node"]
+
+    validate_graph(graph)
+
+    return graph
+
+
+def validate_graph(graph):
+    """
+    Used to validate the graph for whether it is connected and if there are cycles.
+    """
+    filtered = filter_disabled_edges(graph)
     if not nx.is_connected(filtered):
         raise GraphNotFullyConnectedError("The graph is not fully connected.")
     if is_cyclic(filtered):
         raise GraphCycleError("The graph contains a cycle.")
 
-    return G
 
+def filter_disabled_edges(graph, remove_sym_loads=False):
+    """
+    Returns a copy of a graph without the disabled edges, for easy processing. It also has the option to (disabled by
+    default) return a copy without any sym_loads too.
+    """
 
-def filter_disabled_edges(graph):
-    enabled_edges = [(u, v, d) for u, v, d in graph.edges(data=True) if d.get("enabled") is True]
-    G = nx.Graph()
-    G.add_nodes_from(graph.nodes)
-    G.graph["source_vertex_id"] = graph.graph["source_vertex_id"]
-    for u, v, d in enabled_edges:
-        G.add_edge(u, v, **d)
-    return G
+    filtered = nx.Graph()
+
+    if remove_sym_loads:
+        enabled_edges = [
+            (u, v, d)
+            for u, v, d in graph.edges(data=True)
+            if (d.get("from_status") != 0 and d.get("to_status") != 0) and (d.get("type") != "sym_load")
+        ]
+        enabled_nodes = [(n, d) for n, d in graph.nodes(data=True) if d.get("type") != "sym_load"]
+    else:
+        enabled_edges = [
+            (u, v, d) for u, v, d in graph.edges(data=True) if (d.get("from_status") != 0 and d.get("to_status") != 0)
+        ]
+        enabled_nodes = graph.nodes
+
+    filtered.add_nodes_from(enabled_nodes)
+    filtered.add_edges_from(enabled_edges)
+
+    filtered.graph["source_node_id"] = graph.graph["source_node_id"]
+    return filtered
 
 
 def set_edge_enabled_status(graph: nx.Graph, edge_id: int, status: bool):
+    """
+    Sets the status of an edge to enabled or disabled. If already disabled, it will raise an EdgeAlreadyDisabledError.
+    """
+
     for u, v, d in graph.edges(data=True):
         if d.get("id") == edge_id:
-            if d.get("enabled") == status:
-                if status is False:
-                    raise EdgeAlreadyDisabledError(f"The chosen edge {edge_id} is already disabled.")
-            graph[u][v]["enabled"] = status
+            if (d.get("from_status") == 0 or d.get("to_status") == 0) and (status is False):
+                raise EdgeAlreadyDisabledError(f"The chosen edge {edge_id} is already disabled.")
+
+            if status is False:
+                graph[u][v]["from_status"] = 0
+                graph[u][v]["to_status"] = 0
+
+            else:
+                graph[u][v]["from_status"] = 1
+                graph[u][v]["to_status"] = 1
+
             return
     raise IDNotFoundError(f"The chosen edge {edge_id} is not in the ID list.")
 
 
-def is_edge_enabled(graph: nx.Graph, edge_id: int) -> bool:
-    for _, _, d in graph.edges(data=True):
-        if d.get("id") == edge_id:
-            return d.get("enabled", False)
-    raise IDNotFoundError(f"The chosen edge {edge_id} is not in the ID list.")
-
-
 def is_cyclic(graph: nx.Graph) -> bool:
+    """
+    Checks if a graph has a cycle in it. This also includes the disabled edges.
+    """
     try:
         nx.find_cycle(graph)
         return True
@@ -83,26 +137,26 @@ def is_cyclic(graph: nx.Graph) -> bool:
 
 
 def find_downstream_vertices(graph: nx.Graph, edge_id: int) -> List[int]:
-    edge_ids = [data.get("id") for _, _, data in graph.edges(data=True)]
-    if not has_id(edge_ids, edge_id):
-        raise IDNotFoundError("The provided ID is not in the edge_ids list.")
+    """
+    Returns all nodes downstream of the provided edge, with respect to the graphs' source node
+    """
 
-    edge_data = None
     edge_vertices = None
+
+    if not is_edge_enabled(graph, edge_id):
+        return []
+
     for u, v, data in graph.edges(data=True):
         if data.get("id") == edge_id:
-            edge_data = data
             edge_vertices = (u, v)
             break
 
-    if not edge_data.get("enabled", False):
-        return []
-
-    filtered_graph = filter_disabled_edges(graph)
+    filtered_graph = filter_disabled_edges(graph, True)
     try:
-        bfs_tree = nx.bfs_tree(filtered_graph, graph.graph["source_vertex_id"])
-    except nx.NetworkXError:
-        return []
+        bfs_tree = nx.bfs_tree(filtered_graph, graph.graph["source_node_id"])
+
+    except:
+        raise IDNotFoundError("source_node_id is non-existent.")
 
     u, v = edge_vertices
     if bfs_tree.has_edge(u, v):
@@ -119,14 +173,18 @@ def find_downstream_vertices(graph: nx.Graph, edge_id: int) -> List[int]:
 
 
 def find_alternative_edges(graph: nx.Graph, disabled_edge_id: int) -> List[int]:
+    """
+    Returns all alternative edges that could be enabled to make the graph connected, after disabling the provided edge.
+    """
+
     graph_copy = copy.deepcopy(graph)
     set_edge_enabled_status(graph_copy, disabled_edge_id, False)
 
     valid_alternatives = []
 
     # find currently disabled edges
-    for u, v, d in graph.edges(data=True):
-        if not d.get("enabled", None):
+    for _, _, d in graph.edges(data=True):
+        if d.get("type") != "sym_load" and (d.get("from_status", None) == 0 or d.get("to_status", None) == 0):
             candidate_edge_id = d.get("id", None)
 
             # enable originally disabled edge

@@ -1,3 +1,8 @@
+"""
+This module contains all exceptions raised by the power_system_simulation package.
+"""
+
+
 class NoValidOutputDataError(Exception):
     """Raised when there is no output from the power_grid_model to work with."""
 
