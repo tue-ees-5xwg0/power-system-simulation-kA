@@ -1,10 +1,10 @@
 from contextlib import nullcontext as does_not_raise
 
 import pytest
+from power_grid_model.utils import json_deserialize
 
 from power_system_simulation.data_validation import *
 from power_system_simulation.exceptions import *
-from power_grid_model.utils import json_deserialize
 from power_system_simulation.graph_processing import (
     create_graph,
     filter_disabled_edges,
@@ -16,6 +16,7 @@ from power_system_simulation.graph_processing import (
 )
 
 base_test_data_path = "tests/test_data/incorrect_power_grids/"
+
 
 def test_init_normal():
     """
@@ -32,7 +33,7 @@ def test_init_normal():
             6--[14]-7--[15]-8-----(19)
                     |
                    (18)
-    """ 
+    """
 
     with open(base_test_data_path + "normal" + ".json", "r", encoding="utf-8") as file:
         power_grid = json_deserialize(file.read())
@@ -108,7 +109,6 @@ def test_init_err3_invalid_line_node_id():
 
     with open(base_test_data_path + "err_line_node_invalid" + ".json", "r", encoding="utf-8") as file:
         power_grid = json_deserialize(file.read())
-
 
     with pytest.raises(IDNotFoundError) as output:
         create_graph(power_grid)
@@ -257,7 +257,7 @@ def test_is_edge_enabled():
                     |
                    (18)
     """
-    
+
     with open(base_test_data_path + "graph_cycle_disabled" + ".json", "r", encoding="utf-8") as file:
         power_grid = json_deserialize(file.read())
     test = create_graph(power_grid)
@@ -288,7 +288,7 @@ def test_find_downstream_vertices_normal_case():
                     |
                    (18)
     """
-    
+
     with open(base_test_data_path + "graph_cycle_disabled" + ".json", "r", encoding="utf-8") as file:
         power_grid = json_deserialize(file.read())
     test = create_graph(power_grid)
@@ -325,7 +325,7 @@ def test_edge_set_to_correct_enabled_status():
                     |
                    (18)
     """
-    
+
     with open(base_test_data_path + "graph_cycle_disabled" + ".json", "r", encoding="utf-8") as file:
         power_grid = json_deserialize(file.read())
     test = create_graph(power_grid)
@@ -366,7 +366,7 @@ def test_find_alternative_edges_err1():
                     |
                    (18)
     """
-    
+
     with open(base_test_data_path + "graph_cycle_disabled" + ".json", "r", encoding="utf-8") as file:
         power_grid = json_deserialize(file.read())
     test = create_graph(power_grid)

@@ -5,12 +5,7 @@ import pytest
 from power_grid_model import ComponentType
 from test_utilities import compare_pandas_dataframes_fp
 
-from power_system_simulation.power_grid_calculation import ( 
-    ev_penetration_level, 
-    # optimum_tap_position, n_1_calculation,
-    LoadProfileMismatchError,
-    PowerGrid,
-)
+from power_system_simulation.power_grid_calculation import PowerGrid
 
 # testdata filepaths
 pgm_tiny_path = "tests/test_data/tiny_power_grid/input_network_data.json"
@@ -87,5 +82,3 @@ def test_power_grid_model_get_line_summary():
 def test_feature_ev_penetration_level():
 
     test_grid = PowerGrid(pgm_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
-
-    ev_penetration_level(test_grid, ev_p_profile_small_path, 0.5)

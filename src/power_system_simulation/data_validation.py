@@ -1,21 +1,31 @@
-from typing import Dict, List, Tuple
+"""
+This module contains all the functions used for validating the PGM input data after its imported.
+"""
+
+from typing import Dict, List
 
 import networkx as nx
+import numpy as np
 
-from power_system_simulation.exceptions import *
+from power_system_simulation.exceptions import IDNotFoundError
 
 
-def has_duplicate_ids(*args: List[Dict]):
-
+def has_duplicate_ids(*args: np.ndarray):
+    """
+    Checks for duplicate ids in power_grid component lists.
+    """
     ids = []
-    for list in args:
-        for item in list:
+    for ls in args:
+        for item in ls:
             ids.append(item["id"])
 
     return len(ids) != len(set(ids))
 
 
 def has_node_ids(nodes: List[Dict], lines: List[Dict]):
+    """
+    Checks if the list refers to existing nodes, works for lines, transformers, sym_loads an source nodes.
+    """
     node_ids = []
     for node in nodes:
         node_ids.append(node["id"])
@@ -34,14 +44,10 @@ def has_node_ids(nodes: List[Dict], lines: List[Dict]):
     return True
 
 
-def has_source_id(nodes: List[Dict], id_check: int):
-    node_ids = []
-    for node in nodes:
-        node_ids.append(node["id"])
-    return id_check in node_ids
-
-
 def is_edge_enabled(graph: nx.Graph, edge_id: int) -> bool:
+    """
+    Checks if an edge in a graph is enabled or not.
+    """
     for _, _, d in graph.edges(data=True):
         if d.get("id") == edge_id:
             return d.get("to_status", False) and d.get("to_status", False)
