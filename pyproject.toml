@@ -61,8 +61,9 @@ load-plugins=[
 
 [tool.pylint.'MESSAGES CONTROL']
 per-file-ignores = [
-    "graph_processing.py:R0913,R0914,R0917,R1702,W1114,W0612",
-    "power_grid_model.py:W1514,R0903"
+    "graph_processing.py:W0707,W1114",
+    "power_grid_calculation.py:C0103,W0511,W0707",
+    "data_validation.py:W0702,W0707"
 ]
 
 # Minimum Python version to use for version dependent checks. Will default to the

@@ -1,6 +1,8 @@
 """
-This module contains the power grid model and the processing around it in the TimeSeriesPowerFlow class.
+This module contains the power grid class and the processing around it.
 """
+
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -13,50 +15,68 @@ from power_grid_model import (
 )
 from power_grid_model.utils import json_deserialize
 
+from power_system_simulation.graph_processing import create_graph
 
-class NoValidOutputDataError(Exception):
-    """Raised when there is no output from the power_grid_model to work with."""
-
-
-class LoadProfileMismatchError(Exception):
-    """Raised when the active and reactive load profiles do not align."""
+optimization_criteria = Literal["minimal_deviation_u_pu", "minimal_energy_loss"]
 
 
-
-class TimeSeriesPowerFlow:
+class PowerGrid:
     """
-    This class contains the processing around the the power-grid-model from the power_grid_model package.
+    This class functions as a powergrid with a power_grid_model and power_grid_graph build into it for integrated
+    power-flow calculations and graph processing.
     """
 
-    def __init__(self, pgm_path: str, p_path: str, q_path: str):
+    def __init__(self, power_grid_path: str, *, p_profile_path: str = None, q_profile_path: str = None):
 
-        # Load grid
-        with open(pgm_path, "r", encoding="utf-8") as file:
-            self.grid_data = json_deserialize(file.read())
+        self.power_grid = None
+        self.load_grid_json(power_grid_path)
+        self.graph = None
 
-        # Load profile data
-        self.p_profile = pd.read_parquet(p_path)
-        self.q_profile = pd.read_parquet(q_path)
+        self.p_profile = None
+        self.q_profile = None
 
-        # Validate profiles
-        if not self.p_profile.index.equals(self.q_profile.index):
-            raise LoadProfileMismatchError("Timestamps do not match between p and q profiles.")
-        if not self.p_profile.columns.equals(self.q_profile.columns):
-            raise LoadProfileMismatchError("Load IDs do not match between p and q profiles.")
+        if p_profile_path is not None:
+            self.load_p_profile_parquet(p_profile_path)
 
-        # Create model
-        self.model = PowerGridModel(self.grid_data)
+        if q_profile_path is not None:
+            self.load_q_profile_parquet(q_profile_path)
 
-        # Placeholder for batch output and summaries
         self.batch_output = None
         self.voltage_summary = None
         self.line_summary = None
 
+    def load_grid_json(self, path):
+        """
+        Loads the power_grid from a specified .PGM file.
+        """
+        with open(path, "r", encoding="utf-8") as file:
+            self.power_grid = json_deserialize(file.read())
+
+    def load_p_profile_parquet(self, path):
+        """
+        Loads the p_profile into the PowerGrid object.
+        """
+        self.p_profile = pd.read_parquet(path)
+
+    def load_q_profile_parquet(self, path):
+        """
+        Loads the q_profile into the PowerGrid object.
+        """
+        self.q_profile = pd.read_parquet(path)
+
+    def make_graph(self):
+        """
+        Creates a graph from current power_grid data and saves it to self.graph.
+        """
+        self.graph = create_graph(self.power_grid)
+
     def run(self):
         """
-        After initializing the class and setting up the model properties, this function can be run the process the
+        After initializing the class and setting up the model properties, this function can be run to process the
         model and save the output to batch_output, voltage_summary and line_summary.
         """
+        self._validate_power_profiles()
+        model = PowerGridModel(self.power_grid)
         num_time_stamps, num_sym_loads = self.p_profile.shape
 
         update_sym_load = initialize_array(DatasetType.update, ComponentType.sym_load, (num_time_stamps, num_sym_loads))
@@ -66,7 +86,7 @@ class TimeSeriesPowerFlow:
 
         time_series_mutation = {ComponentType.sym_load: update_sym_load}
 
-        self.batch_output = self.model.calculate_power_flow(
+        self.batch_output = model.calculate_power_flow(
             update_data=time_series_mutation,
             symmetric=True,
             error_tolerance=1e-8,
@@ -76,6 +96,28 @@ class TimeSeriesPowerFlow:
 
         self.voltage_summary = self._get_voltage_summary()
         self.line_summary = self._get_line_summary()
+
+    def _validate_power_profiles(self):
+        # if self.p_profile is None:
+        #     raise ValidationError(
+        #         "No data found in the p_profile. Make sure an active power profile is loaded into the object."
+        #     )
+        # if self.q_profile is None:
+        #     raise ValidationError(
+        #         "No data found in the q_profile. Make sure an reactive power profile is loaded into the object."
+        #     )
+
+        # if not self.p_profile.index.equals(self.q_profile.index):
+        #     raise LoadProfileMismatchError("Timestamps do not match between p and q profiles.")
+        # if not self.p_profile.columns.equals(self.q_profile.columns):
+        #     raise LoadProfileMismatchError("Load IDs do not match between p and q profiles.")
+        pass
+
+    def _validate_power_grid(self):
+        try:
+            assert self.power_grid is not None
+        except:
+            raise ValueError("power_grid not found, please make a power grid first.")
 
     def _get_voltage_summary(self):
         """
@@ -154,3 +196,36 @@ class TimeSeriesPowerFlow:
         output["min_loading"] = temp_min_value
 
         return output
+
+
+# def ev_penetration_level(power_grid: PowerGrid, ev_charging_profile_path: str, penetration_level: float):
+
+#     pg_copy = copy.deepcopy(power_grid)
+
+#     # TODO do something with the pg to randomly distribute ev chargers from the ev
+
+#     return [pg_copy.voltage_summary, pg_copy.line_summary]
+
+
+# def optimum_tap_position(
+#     power_grid: PowerGrid, optimization_criterium: optimization_criteria = "minimal_deviation_u_pu"
+# ):
+#     pg_copy = copy.deepcopy(power_grid)
+#     options = get_args(optimization_criteria)
+#     assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
+
+#     # TODO do something with the pg like iterate with different tap positions and return the optimum
+#     # tap position for the transformer.
+
+#     return optimum_tap_position
+
+
+# def n_1_calculation(power_grid: PowerGrid):
+#     pg_copy = copy.deepcopy(power_grid)
+#     output = pd.DataFrame()
+
+#     # TODO create alternative power_grids, one for each different alternative line. Summarize the
+#     # results into the output table. Use
+#     # the graph_processor to find out which lines to use.
+
+#     return output
