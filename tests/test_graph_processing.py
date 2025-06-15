@@ -2,7 +2,6 @@ from contextlib import nullcontext as does_not_raise
 
 import pytest
 from power_grid_model.utils import json_deserialize
-from power_system_simulation.power_grid_calculation import load_grid_json
 
 from power_system_simulation.data_validation import *
 from power_system_simulation.exceptions import *
@@ -15,6 +14,7 @@ from power_system_simulation.graph_processing import (
     is_edge_enabled,
     set_edge_enabled_status,
 )
+from power_system_simulation.power_grid_calculation import load_grid_json
 
 base_test_data_path = "tests/test_data/incorrect_power_grids/"
 
@@ -57,7 +57,7 @@ def test_init_err1_duplicate_node_ids():
                     |
                    (18)
     """
-        
+
     with pytest.raises(IDNotUniqueError) as output:
         load_grid_json(base_test_data_path + "err_duplicate_items" + ".json")
     assert output.value.args[0] == "There are components with duplicate IDs."
@@ -79,7 +79,7 @@ def test_init_err3_invalid_sym_load_node_id():
                     |
                    (18)
     """
-    
+
     with pytest.raises(IDNotFoundError) as output:
         load_grid_json(base_test_data_path + "err_sym_load_node_invalid" + ".json")
     assert output.value.args[0] == "Sym_load(s) contain(s) non-existent node ID."

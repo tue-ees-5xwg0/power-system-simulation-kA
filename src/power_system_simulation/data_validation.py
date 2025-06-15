@@ -53,7 +53,12 @@ def is_edge_enabled(graph: nx.Graph, edge_id: int) -> bool:
             return d.get("to_status", False) and d.get("to_status", False)
     raise IDNotFoundError(f"The provided edge {edge_id} is not in the ID list.")
 
+
 def validate_power_grid_data(power_grid):
+    """
+    Used to validate the PGM input data for duplicate ids and invalid references.
+    """
+
     nodes = power_grid["node"]
     lines = power_grid["line"]
     source = power_grid["source"]
@@ -70,4 +75,3 @@ def validate_power_grid_data(power_grid):
         raise IDNotFoundError("Transformer contains non-existent node ID.")
     if not has_node_ids(nodes, source):
         raise IDNotFoundError("The provided source_node_id is not in the node list.")
-    

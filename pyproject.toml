@@ -63,7 +63,7 @@ load-plugins=[
 per-file-ignores = [
     "graph_processing.py:W0707,W1114",
     "power_grid_calculation.py:C0103,W0511,W0707",
-    "data_validation.py:W0702,W0707"
+    "data_validation.py:W0702,W0707,R0801"
 ]
 
 # Minimum Python version to use for version dependent checks. Will default to the

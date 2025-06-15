@@ -7,13 +7,12 @@ from typing import List
 
 import networkx as nx
 
-from power_system_simulation.data_validation import has_duplicate_ids, has_node_ids, is_edge_enabled
+from power_system_simulation.data_validation import is_edge_enabled
 from power_system_simulation.exceptions import (
     EdgeAlreadyDisabledError,
     GraphCycleError,
     GraphNotFullyConnectedError,
     IDNotFoundError,
-    IDNotUniqueError,
 )
 
 
@@ -66,6 +65,9 @@ def create_graph(power_grid) -> nx.Graph:
 
 
 def validate_graph(graph):
+    """
+    Used to validate the graph for whether it is connected and if there are cycles.
+    """
     filtered = filter_disabled_edges(graph)
     if not nx.is_connected(filtered):
         raise GraphNotFullyConnectedError("The graph is not fully connected.")

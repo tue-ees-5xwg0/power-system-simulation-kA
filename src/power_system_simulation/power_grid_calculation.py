@@ -2,8 +2,7 @@
 This module contains the power grid class and the processing around it.
 """
 
-from typing import Optional
-from typing import Literal
+from typing import Literal, Optional
 
 import numpy as np
 import pandas as pd
@@ -16,10 +15,9 @@ from power_grid_model import (
 )
 from power_grid_model.utils import json_deserialize
 
-
-from power_system_simulation.exceptions import NoValidOutputDataError, LoadProfileMismatchError
 from power_system_simulation.data_validation import validate_power_grid_data
-from power_system_simulation.graph_processing import create_graph, validate_graph
+from power_system_simulation.exceptions import LoadProfileMismatchError
+from power_system_simulation.graph_processing import create_graph
 
 optimization_criteria = Literal["minimal_deviation_u_pu", "minimal_energy_loss"]
 
@@ -34,13 +32,16 @@ def load_grid_json(path):
 
     return power_grid
 
+
 class PowerGrid:
     """
     This class functions as a powergrid with a power_grid_model and power_grid_graph build into it for integrated
     power-flow calculations and graph processing.
     """
 
-    def __init__(self, power_grid_path: str, *, p_profile_path: str = None, q_profile_path: str = None):
+    def __init__(
+        self, power_grid_path: str, p_profile_path: Optional[str] = None, q_profile_path: Optional[str] = None
+    ):
 
         self.power_grid = load_grid_json(power_grid_path)
         self.graph = create_graph(self.power_grid)
@@ -52,11 +53,10 @@ class PowerGrid:
 
         if q_profile_path is not None:
             self.q_profile = pd.read_parquet(q_profile_path)
-        
+
         self.batch_output = None
         self.voltage_summary = None
         self.line_summary = None
-
 
     def load_p_profile_parquet(self, path):
         """
@@ -133,7 +133,7 @@ class PowerGrid:
         output["max_u_pu"] = temp_max_value
         output["min_u_pu_node"] = temp_min_node
         output["min_u_pu"] = temp_min_value
-        
+
         return output
 
     def _get_line_summary(self):
