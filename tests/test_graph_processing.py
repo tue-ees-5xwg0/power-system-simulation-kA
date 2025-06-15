@@ -4,6 +4,7 @@ import pytest
 
 from power_system_simulation.data_validation import *
 from power_system_simulation.exceptions import *
+from power_grid_model.utils import json_deserialize
 from power_system_simulation.graph_processing import (
     create_graph,
     filter_disabled_edges,
@@ -14,6 +15,7 @@ from power_system_simulation.graph_processing import (
     set_edge_enabled_status,
 )
 
+base_test_data_path = "tests/test_data/incorrect_power_grids/"
 
 def test_init_normal():
     """
@@ -30,31 +32,11 @@ def test_init_normal():
             6--[14]-7--[15]-8-----(19)
                     |
                    (18)
-    """
+    """ 
 
-    nodes = [
-        {"id": 1, "u_rated": 400},
-        {"id": 2, "u_rated": 400},
-        {"id": 3, "u_rated": 400},
-        {"id": 4, "u_rated": 400},
-        {"id": 5, "u_rated": 400},
-        {"id": 6, "u_rated": 400},
-        {"id": 7, "u_rated": 400},
-        {"id": 8, "u_rated": 400},
-    ]
-    lines = [
-        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
-        {"id": 10, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
-        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
-        {"id": 12, "from_node": 4, "to_node": 5, "from_status": 1, "to_status": 1},
-        {"id": 13, "from_node": 4, "to_node": 6, "from_status": 1, "to_status": 1},
-        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
-        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
-    ]
-    sym_loads = [{"id": 16, "node": 3}, {"id": 17, "node": 5}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
-    source = [{"id": 20, "node": 1}]
-
-    create_graph(nodes, lines, sym_loads, source)
+    with open(base_test_data_path + "normal" + ".json", "r", encoding="utf-8") as file:
+        power_grid = json_deserialize(file.read())
+    create_graph(power_grid)
 
 
 def test_init_err1_duplicate_node_ids():
@@ -63,7 +45,7 @@ def test_init_err1_duplicate_node_ids():
 
     1--[9]--2--[10]-3------(16)
     ^       |
-    20     [11]
+    20     [4]
             |
             4--[12]-4------(17)
             |
@@ -74,74 +56,11 @@ def test_init_err1_duplicate_node_ids():
                    (18)
     """
 
-    nodes = [
-        {"id": 1, "u_rated": 400},
-        {"id": 2, "u_rated": 400},
-        {"id": 3, "u_rated": 400},
-        {"id": 4, "u_rated": 400},
-        {"id": 4, "u_rated": 400},
-        {"id": 6, "u_rated": 400},
-        {"id": 7, "u_rated": 400},
-        {"id": 8, "u_rated": 400},
-    ]
-    lines = [
-        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
-        {"id": 10, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
-        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
-        {"id": 12, "from_node": 4, "to_node": 4, "from_status": 1, "to_status": 1},
-        {"id": 13, "from_node": 4, "to_node": 6, "from_status": 1, "to_status": 1},
-        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
-        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
-    ]
-    sym_loads = [{"id": 16, "node": 3}, {"id": 17, "node": 4}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
-    source = [{"id": 20, "node": 1}]
+    with open(base_test_data_path + "err_duplicate_items" + ".json", "r", encoding="utf-8") as file:
+        power_grid = json_deserialize(file.read())
 
     with pytest.raises(IDNotUniqueError) as output:
-        create_graph(nodes, lines, sym_loads, source)
-    assert output.value.args[0] == "There are components with duplicate IDs."
-
-
-def test_init_err1_duplicate_node_edge():
-    """
-    Duplicate edge ids, should raise an IDNotUniqueError.
-
-    1--[9]--2--[7]-3------(16)
-    ^       |
-    20     [11]
-            |
-            4--[12]-5------(17)
-            |
-           [13]
-            |
-            6--[14]-7--[15]-8-----(19)
-                    |
-                   (18)
-    """
-
-    nodes = [
-        {"id": 1, "u_rated": 400},
-        {"id": 2, "u_rated": 400},
-        {"id": 3, "u_rated": 400},
-        {"id": 4, "u_rated": 400},
-        {"id": 5, "u_rated": 400},
-        {"id": 6, "u_rated": 400},
-        {"id": 7, "u_rated": 400},
-        {"id": 8, "u_rated": 400},
-    ]
-    lines = [
-        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
-        {"id": 7, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
-        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
-        {"id": 12, "from_node": 4, "to_node": 5, "from_status": 1, "to_status": 1},
-        {"id": 13, "from_node": 4, "to_node": 6, "from_status": 1, "to_status": 1},
-        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
-        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
-    ]
-    sym_loads = [{"id": 16, "node": 3}, {"id": 17, "node": 5}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
-    source = [{"id": 20, "node": 1}]
-
-    with pytest.raises(IDNotUniqueError) as output:
-        create_graph(nodes, lines, sym_loads, source)
+        create_graph(power_grid)
     assert output.value.args[0] == "There are components with duplicate IDs."
 
 
@@ -162,40 +81,21 @@ def test_init_err3_invalid_sym_load_node_id():
                    (18)
     """
 
-    nodes = [
-        {"id": 1, "u_rated": 400},
-        {"id": 2, "u_rated": 400},
-        {"id": 3, "u_rated": 400},
-        {"id": 4, "u_rated": 400},
-        {"id": 5, "u_rated": 400},
-        {"id": 6, "u_rated": 400},
-        {"id": 7, "u_rated": 400},
-        {"id": 8, "u_rated": 400},
-    ]
-    lines = [
-        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
-        {"id": 10, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
-        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
-        {"id": 12, "from_node": 4, "to_node": 5, "from_status": 1, "to_status": 1},
-        {"id": 13, "from_node": 4, "to_node": 6, "from_status": 1, "to_status": 1},
-        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
-        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
-    ]
-    sym_loads = [{"id": 16, "node": 99}, {"id": 17, "node": 5}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
-    source = [{"id": 20, "node": 1}]
+    with open(base_test_data_path + "err_sym_load_node_invalid" + ".json", "r", encoding="utf-8") as file:
+        power_grid = json_deserialize(file.read())
 
     with pytest.raises(IDNotFoundError) as output:
-        create_graph(nodes, lines, sym_loads, source)
+        create_graph(power_grid)
     assert output.value.args[0] == "Sym_load(s) contain(s) non-existent node ID."
 
 
-def test_init_err3_invalid_edge_node_id():
+def test_init_err3_invalid_line_node_id():
     """
     A line is connected to a non-existent node.
 
     1--[9]--2--[10]-3------(16)
     ^       |
-    20     [11]   /--16
+    20     [11]   /--99
             |    /
             4--[12]  5------(17)
             |
@@ -206,30 +106,12 @@ def test_init_err3_invalid_edge_node_id():
                    (18)
     """
 
-    nodes = [
-        {"id": 1, "u_rated": 400},
-        {"id": 2, "u_rated": 400},
-        {"id": 3, "u_rated": 400},
-        {"id": 4, "u_rated": 400},
-        {"id": 5, "u_rated": 400},
-        {"id": 6, "u_rated": 400},
-        {"id": 7, "u_rated": 400},
-        {"id": 8, "u_rated": 400},
-    ]
-    lines = [
-        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
-        {"id": 10, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
-        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
-        {"id": 12, "from_node": 4, "to_node": 21, "from_status": 1, "to_status": 1},
-        {"id": 13, "from_node": 4, "to_node": 6, "from_status": 1, "to_status": 1},
-        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
-        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
-    ]
-    sym_loads = [{"id": 16, "node": 3}, {"id": 17, "node": 5}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
-    source = [{"id": 20, "node": 1}]
+    with open(base_test_data_path + "err_line_node_invalid" + ".json", "r", encoding="utf-8") as file:
+        power_grid = json_deserialize(file.read())
+
 
     with pytest.raises(IDNotFoundError) as output:
-        create_graph(nodes, lines, sym_loads, source)
+        create_graph(power_grid)
     assert output.value.args[0] == "Line(s) contain(s) non-existent node ID."
 
 
@@ -237,7 +119,7 @@ def test_init_err5_invalid_source_node_id():
     """
     The source ID is invalid.
 
-    1--[9]--2--[10]-3------(16)     21
+    1--[9]--2--[10]-3------(16)     99
             |                       ^
            [11]                     20
             |
@@ -250,30 +132,11 @@ def test_init_err5_invalid_source_node_id():
                    (18)
     """
 
-    nodes = [
-        {"id": 1, "u_rated": 400},
-        {"id": 2, "u_rated": 400},
-        {"id": 3, "u_rated": 400},
-        {"id": 4, "u_rated": 400},
-        {"id": 5, "u_rated": 400},
-        {"id": 6, "u_rated": 400},
-        {"id": 7, "u_rated": 400},
-        {"id": 8, "u_rated": 400},
-    ]
-    lines = [
-        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
-        {"id": 10, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
-        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
-        {"id": 12, "from_node": 4, "to_node": 5, "from_status": 1, "to_status": 1},
-        {"id": 13, "from_node": 4, "to_node": 6, "from_status": 1, "to_status": 1},
-        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
-        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
-    ]
-    sym_loads = [{"id": 16, "node": 3}, {"id": 17, "node": 5}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
-    source = [{"id": 20, "node": 21}]
+    with open(base_test_data_path + "err_source_node_id_invalid" + ".json", "r", encoding="utf-8") as file:
+        power_grid = json_deserialize(file.read())
 
     with pytest.raises(IDNotFoundError) as output:
-        create_graph(nodes, lines, sym_loads, source)
+        create_graph(power_grid)
     assert output.value.args[0] == "The provided source_node_id is not in the node list."
 
 
@@ -295,29 +158,11 @@ def test_init_err6_graph_not_connected_error():
                    (18)
     """
 
-    nodes = [
-        {"id": 1, "u_rated": 400},
-        {"id": 2, "u_rated": 400},
-        {"id": 3, "u_rated": 400},
-        {"id": 4, "u_rated": 400},
-        {"id": 5, "u_rated": 400},
-        {"id": 6, "u_rated": 400},
-        {"id": 7, "u_rated": 400},
-        {"id": 8, "u_rated": 400},
-    ]
-    lines = [
-        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
-        {"id": 10, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
-        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
-        {"id": 12, "from_node": 4, "to_node": 5, "from_status": 1, "to_status": 1},
-        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
-        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
-    ]
-    sym_loads = [{"id": 16, "node": 3}, {"id": 17, "node": 5}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
-    source = [{"id": 20, "node": 1}]
+    with open(base_test_data_path + "err_graph_not_connected" + ".json", "r", encoding="utf-8") as file:
+        power_grid = json_deserialize(file.read())
 
     with pytest.raises(GraphNotFullyConnectedError) as output:
-        create_graph(nodes, lines, sym_loads, source)
+        create_graph(power_grid)
     assert output.value.args[0] == "The graph is not fully connected."
 
 
@@ -339,30 +184,11 @@ def test_init_err6_graph_not_connected_disabled_error():
                    (18)
     """
 
-    nodes = [
-        {"id": 1, "u_rated": 400},
-        {"id": 2, "u_rated": 400},
-        {"id": 3, "u_rated": 400},
-        {"id": 4, "u_rated": 400},
-        {"id": 5, "u_rated": 400},
-        {"id": 6, "u_rated": 400},
-        {"id": 7, "u_rated": 400},
-        {"id": 8, "u_rated": 400},
-    ]
-    lines = [
-        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
-        {"id": 10, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
-        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 0, "to_status": 1},
-        {"id": 12, "from_node": 4, "to_node": 5, "from_status": 1, "to_status": 1},
-        {"id": 13, "from_node": 4, "to_node": 6, "from_status": 1, "to_status": 1},
-        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
-        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
-    ]
-    sym_loads = [{"id": 16, "node": 3}, {"id": 17, "node": 5}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
-    source = [{"id": 20, "node": 1}]
+    with open(base_test_data_path + "err_graph_not_connected" + ".json", "r", encoding="utf-8") as file:
+        power_grid = json_deserialize(file.read())
 
     with pytest.raises(GraphNotFullyConnectedError) as output:
-        create_graph(nodes, lines, sym_loads, source)
+        create_graph(power_grid)
     assert output.value.args[0] == "The graph is not fully connected."
 
 
@@ -383,31 +209,11 @@ def test_init_err7_graph_contains_cycle_error():
                    (18)
     """
 
-    nodes = [
-        {"id": 1, "u_rated": 400},
-        {"id": 2, "u_rated": 400},
-        {"id": 3, "u_rated": 400},
-        {"id": 4, "u_rated": 400},
-        {"id": 5, "u_rated": 400},
-        {"id": 6, "u_rated": 400},
-        {"id": 7, "u_rated": 400},
-        {"id": 8, "u_rated": 400},
-    ]
-    lines = [
-        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
-        {"id": 10, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
-        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
-        {"id": 12, "from_node": 4, "to_node": 5, "from_status": 1, "to_status": 1},
-        {"id": 13, "from_node": 4, "to_node": 6, "from_status": 1, "to_status": 1},
-        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
-        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
-        {"id": 21, "from_node": 3, "to_node": 5, "from_status": 1, "to_status": 1},
-    ]
-    sym_loads = [{"id": 16, "node": 3}, {"id": 17, "node": 5}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
-    source = [{"id": 20, "node": 1}]
+    with open(base_test_data_path + "err_graph_cycle" + ".json", "r", encoding="utf-8") as file:
+        power_grid = json_deserialize(file.read())
 
     with pytest.raises(GraphCycleError) as output:
-        create_graph(nodes, lines, sym_loads, source)
+        create_graph(power_grid)
     assert output.value.args[0] == "The graph contains a cycle."
 
 
@@ -422,182 +228,83 @@ def test_init_err7_graph_contains_cycle_disabled_error():
             |
             4--[12]-5------(17)
             |
-           [13]
+           [13]    [22]
             |
             6--[14]-7--[15]-8-----(19)
                     |
                    (18)
     """
 
-    nodes = [
-        {"id": 1, "u_rated": 400},
-        {"id": 2, "u_rated": 400},
-        {"id": 3, "u_rated": 400},
-        {"id": 4, "u_rated": 400},
-        {"id": 5, "u_rated": 400},
-        {"id": 6, "u_rated": 400},
-        {"id": 7, "u_rated": 400},
-        {"id": 8, "u_rated": 400},
-    ]
-    lines = [
-        {"id": 9, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
-        {"id": 10, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
-        {"id": 11, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
-        {"id": 12, "from_node": 4, "to_node": 5, "from_status": 1, "to_status": 1},
-        {"id": 13, "from_node": 4, "to_node": 6, "from_status": 1, "to_status": 1},
-        {"id": 14, "from_node": 6, "to_node": 7, "from_status": 1, "to_status": 1},
-        {"id": 15, "from_node": 7, "to_node": 8, "from_status": 1, "to_status": 1},
-        {"id": 21, "from_node": 3, "to_node": 5, "from_status": 1, "to_status": 0},
-    ]
-    sym_loads = [{"id": 16, "node": 3}, {"id": 17, "node": 5}, {"id": 18, "node": 7}, {"id": 19, "node": 8}]
-    source = [{"id": 20, "node": 1}]
+    with open(base_test_data_path + "graph_cycle_disabled" + ".json", "r", encoding="utf-8") as file:
+        power_grid = json_deserialize(file.read())
 
-    create_graph(nodes, lines, sym_loads, source)
+    create_graph(power_grid)
 
 
 def test_is_edge_enabled():
     """
     The chosen edge is either enabled or disabled, or not a valid edge_id.
 
-    15> 1--[6]--2--[7]--3------(12)
-        |
-        |      [10]
-        |
-        ---[8]--4------(13)
-        |
-        |      [11]
-        |
-        ---[9]--5------(14)
-
+    1--[9]--2--[10]-3------(16)
+    ^       |
+    20     [11]    [21]
+            |
+            4--[12]-5------(17)
+            |
+           [13]    [22]
+            |
+            6--[14]-7--[15]-8-----(19)
+                    |
+                   (18)
     """
-
-    nodes = [
-        {"id": 1, "u_rated": 400},
-        {"id": 2, "u_rated": 400},
-        {"id": 3, "u_rated": 400},
-        {"id": 4, "u_rated": 400},
-        {"id": 5, "u_rated": 400},
-    ]
-    lines = [
-        {"id": 6, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
-        {"id": 7, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
-        {"id": 8, "from_node": 1, "to_node": 4, "from_status": 1, "to_status": 1},
-        {"id": 9, "from_node": 1, "to_node": 5, "from_status": 1, "to_status": 1},
-        {"id": 10, "from_node": 2, "to_node": 4, "from_status": 0, "to_status": 0},
-        {"id": 11, "from_node": 4, "to_node": 5, "from_status": 0, "to_status": 0},
-    ]
-    sym_loads = [{"id": 12, "node": 3}, {"id": 13, "node": 4}, {"id": 14, "node": 5}]
-    source = [{"id": 15, "node": 1}]
-
-    test = create_graph(nodes, lines, sym_loads, source)
+    
+    with open(base_test_data_path + "graph_cycle_disabled" + ".json", "r", encoding="utf-8") as file:
+        power_grid = json_deserialize(file.read())
+    test = create_graph(power_grid)
 
     # Test if edges are enabled or disabled
-    assert is_edge_enabled(test, 7) == True
-    assert is_edge_enabled(test, 10) == False
+    assert is_edge_enabled(test, 9) == True
+    assert is_edge_enabled(test, 21) == False
 
     # Test if error is raised if chosen edge is not a valid ID
     with pytest.raises(IDNotFoundError) as output:
-        is_edge_enabled(test, 12)
-    assert output.value.args[0] == "The provided edge 12 is not in the ID list."
+        is_edge_enabled(test, 99)
+    assert output.value.args[0] == "The provided edge 99 is not in the ID list."
 
 
 def test_find_downstream_vertices_normal_case():
     """
     Test normal case where edge is enabled and has downstream vertices.
 
-    1--[6]--2--[7]--3------(10)
+    1--[9]--2--[10]-3------(16)
     ^       |
-    12     [8]
+    20     [11]    [21]
             |
-            4--[9]--5------(11)
+            4--[12]-5------(17)
+            |
+           [13]    [22]
+            |
+            6--[14]-7--[15]-8-----(19)
+                    |
+                   (18)
     """
+    
+    with open(base_test_data_path + "graph_cycle_disabled" + ".json", "r", encoding="utf-8") as file:
+        power_grid = json_deserialize(file.read())
+    test = create_graph(power_grid)
 
-    nodes = [
-        {"id": 1, "u_rated": 400},
-        {"id": 2, "u_rated": 400},
-        {"id": 3, "u_rated": 400},
-        {"id": 4, "u_rated": 400},
-        {"id": 5, "u_rated": 400},
-    ]
-    lines = [
-        {"id": 6, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
-        {"id": 7, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
-        {"id": 8, "from_node": 2, "to_node": 4, "from_status": 1, "to_status": 1},
-        {"id": 9, "from_node": 4, "to_node": 5, "from_status": 1, "to_status": 1},
-    ]
-    sym_loads = [{"id": 10, "node": 3}, {"id": 11, "node": 5}]
-    source = [{"id": 12, "node": 1}]
+    assert find_downstream_vertices(test, 9) == [2, 3, 4, 5, 6, 7, 8]
+    assert find_downstream_vertices(test, 14) == [7, 8]
+    assert find_downstream_vertices(test, 21) == []
+    assert find_downstream_vertices(test, 11) == [4, 5, 6, 7, 8]
 
-    test = create_graph(nodes, lines, sym_loads, source)
-
-    # Test edge 1 (1-2) - downstream should be 2,3,4,5
-    assert sorted(find_downstream_vertices(test, 6)) == [2, 3, 4, 5]
-
-    # Test edge 2 (2-3) - downstream should be 3
-    assert find_downstream_vertices(test, 7) == [3]
-
-    # Test edge 3 (2-4) - downstream should be 4,5
-    assert sorted(find_downstream_vertices(test, 8)) == [4, 5]
-
-    # Test edge 4 (4-5) - downstream should be 5
-    assert find_downstream_vertices(test, 9) == [5]
-
-
-def test_find_downstream_vertices_disabled_case():
-    """
-    Test for downstream vertices.
-
-    15> 1--[6]--2--[7]--3------(12)
-        |
-        |      [10]
-        |
-        ---[8]--4------(13)
-        |
-        |      [11]
-        |
-        ---[9]--5------(14)
-
-    """
-
-    nodes = [
-        {"id": 1, "u_rated": 400},
-        {"id": 2, "u_rated": 400},
-        {"id": 3, "u_rated": 400},
-        {"id": 4, "u_rated": 400},
-        {"id": 5, "u_rated": 400},
-    ]
-    lines = [
-        {"id": 6, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
-        {"id": 7, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
-        {"id": 8, "from_node": 1, "to_node": 4, "from_status": 1, "to_status": 1},
-        {"id": 9, "from_node": 1, "to_node": 5, "from_status": 1, "to_status": 1},
-        {"id": 10, "from_node": 2, "to_node": 4, "from_status": 0, "to_status": 0},
-        {"id": 11, "from_node": 4, "to_node": 5, "from_status": 0, "to_status": 0},
-    ]
-    sym_loads = [{"id": 12, "node": 3}, {"id": 13, "node": 4}, {"id": 14, "node": 5}]
-    source = [{"id": 15, "node": 1}]
-
-    test = create_graph(nodes, lines, sym_loads, source)
-
-    # Source node 1
-    assert sorted(find_downstream_vertices(test, 6)) == [2, 3]
-    assert find_downstream_vertices(test, 9) == [5]
-    assert find_downstream_vertices(test, 7) == [3]
-    assert find_downstream_vertices(test, 10) == []
-
-    # Invalid edge_id
-    with pytest.raises(IDNotFoundError) as output:
-        find_downstream_vertices(test, 2)
-    assert output.value.args[0] == "The provided edge 2 is not in the ID list."
-
-    # Source node 4
     test.graph["source_node_id"] = 4
-    assert sorted(find_downstream_vertices(test, 8)) == [1, 2, 3, 5]
+    assert find_downstream_vertices(test, 11) == [1, 2, 3]
+    assert find_downstream_vertices(test, 12) == [5]
 
-    # Invalid source_node_id
     test.graph["source_node_id"] = 99
     with pytest.raises(IDNotFoundError) as output:
-        find_downstream_vertices(test, 6)
+        find_downstream_vertices(test, 9)
     assert output.value.args[0] == "source_node_id is non-existent."
 
 
@@ -606,49 +313,32 @@ def test_edge_set_to_correct_enabled_status():
     Tests that the edge is correctly set to enabled or disabled
     and an error is given if edge is already disabled or not a valid id.
 
-    15> 1--[6]--2--[7]--3------(12)
-        |
-        |      [10]
-        |
-        ---[8]--4------(13)
-        |
-        |      [11]
-        |
-        ---[9]--5------(14)
-
+    1--[9]--2--[10]-3------(16)
+    ^       |
+    20     [11]    [21]
+            |
+            4--[12]-5------(17)
+            |
+           [13]    [22]
+            |
+            6--[14]-7--[15]-8-----(19)
+                    |
+                   (18)
     """
+    
+    with open(base_test_data_path + "graph_cycle_disabled" + ".json", "r", encoding="utf-8") as file:
+        power_grid = json_deserialize(file.read())
+    test = create_graph(power_grid)
 
-    nodes = [
-        {"id": 1, "u_rated": 400},
-        {"id": 2, "u_rated": 400},
-        {"id": 3, "u_rated": 400},
-        {"id": 4, "u_rated": 400},
-        {"id": 5, "u_rated": 400},
-    ]
-    lines = [
-        {"id": 6, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
-        {"id": 7, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
-        {"id": 8, "from_node": 1, "to_node": 4, "from_status": 1, "to_status": 1},
-        {"id": 9, "from_node": 1, "to_node": 5, "from_status": 1, "to_status": 1},
-        {"id": 10, "from_node": 2, "to_node": 4, "from_status": 0, "to_status": 0},
-        {"id": 11, "from_node": 4, "to_node": 5, "from_status": 0, "to_status": 1},
-    ]
-    sym_loads = [{"id": 12, "node": 3}, {"id": 13, "node": 4}, {"id": 14, "node": 5}]
-    source = [{"id": 15, "node": 1}]
-
-    test = create_graph(nodes, lines, sym_loads, source)
-    # Test if edge 1 is correctly disabled
-    set_edge_enabled_status(test, 6, False)
-    assert is_edge_enabled(test, 6) == False
+    set_edge_enabled_status(test, 9, False)
+    assert is_edge_enabled(test, 9) == False
+    set_edge_enabled_status(test, 12, False)
+    assert is_edge_enabled(test, 12) == False
 
     # Test if error is raised if chosen edge is already disabled
     with pytest.raises(EdgeAlreadyDisabledError) as output:
-        set_edge_enabled_status(test, 10, False)
-    assert output.value.args[0] == "The chosen edge 10 is already disabled."
-
-    with pytest.raises(EdgeAlreadyDisabledError) as output:
-        set_edge_enabled_status(test, 11, False)
-    assert output.value.args[0] == "The chosen edge 11 is already disabled."
+        set_edge_enabled_status(test, 12, False)
+    assert output.value.args[0] == "The chosen edge 12 is already disabled."
 
     # Test if error is raised if chosen edge is not a valid ID
     with pytest.raises(IDNotFoundError) as output:
@@ -656,57 +346,43 @@ def test_edge_set_to_correct_enabled_status():
     assert output.value.args[0] == "The chosen edge 999 is not in the ID list."
 
     # Test if edge 7 is actually enabled
-    set_edge_enabled_status(test, 10, True)
-    assert is_edge_enabled(test, 10) == True
+    set_edge_enabled_status(test, 21, True)
+    assert is_edge_enabled(test, 21) == True
 
 
 def test_find_alternative_edges_err1():
     """
     Tests that alternative edges are found
 
-    15> 1--[6]--2--[7]--3------(12)
-        |
-        |      [10]
-        |
-        ---[8]--4------(13)
-        |
-        |      [11]
-        |
-        ---[9]--5------(14)
-
+    1--[9]--2--[10]-3------(16)
+    ^       |
+    20     [11]    [21]
+            |
+            4--[12]-5------(17)
+            |
+           [13]    [22]
+            |
+            6--[14]-7--[15]-8-----(19)
+                    |
+                   (18)
     """
-
-    nodes = [
-        {"id": 1, "u_rated": 400},
-        {"id": 2, "u_rated": 400},
-        {"id": 3, "u_rated": 400},
-        {"id": 4, "u_rated": 400},
-        {"id": 5, "u_rated": 400},
-    ]
-    lines = [
-        {"id": 6, "from_node": 1, "to_node": 2, "from_status": 1, "to_status": 1},
-        {"id": 7, "from_node": 2, "to_node": 3, "from_status": 1, "to_status": 1},
-        {"id": 8, "from_node": 1, "to_node": 4, "from_status": 1, "to_status": 1},
-        {"id": 9, "from_node": 1, "to_node": 5, "from_status": 1, "to_status": 1},
-        {"id": 10, "from_node": 2, "to_node": 4, "from_status": 0, "to_status": 0},
-        {"id": 11, "from_node": 4, "to_node": 5, "from_status": 0, "to_status": 1},
-    ]
-    sym_loads = [{"id": 12, "node": 3}, {"id": 13, "node": 4}, {"id": 14, "node": 5}]
-    source = [{"id": 15, "node": 1}]
-
-    test = create_graph(nodes, lines, sym_loads, source)
+    
+    with open(base_test_data_path + "graph_cycle_disabled" + ".json", "r", encoding="utf-8") as file:
+        power_grid = json_deserialize(file.read())
+    test = create_graph(power_grid)
 
     # tests if found alternative edges for disabled edge input are correct (connect the graph and acyclic)
-
-    assert find_alternative_edges(test, 6) == [10]
-    assert find_alternative_edges(test, 8) == [10, 11]
-    assert find_alternative_edges(test, 9) == [11]
-    assert find_alternative_edges(test, 7) == []
+    assert find_alternative_edges(test, 10) == [21]
+    assert find_alternative_edges(test, 12) == [21, 22]
+    assert find_alternative_edges(test, 11) == [21]
+    assert find_alternative_edges(test, 14) == [22]
+    assert find_alternative_edges(test, 15) == []
+    assert find_alternative_edges(test, 9) == []
 
     # Test if error is raised if chosen edge is already disabled
     with pytest.raises(EdgeAlreadyDisabledError) as output:
-        find_alternative_edges(test, 10)
-    assert output.value.args[0] == "The chosen edge 10 is already disabled."
+        find_alternative_edges(test, 21)
+    assert output.value.args[0] == "The chosen edge 21 is already disabled."
 
     # Test if error is raised if chosen edge is not a valid ID
     with pytest.raises(IDNotFoundError) as output:

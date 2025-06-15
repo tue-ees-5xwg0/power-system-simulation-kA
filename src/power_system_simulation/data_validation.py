@@ -5,7 +5,7 @@ import networkx as nx
 from power_system_simulation.exceptions import *
 
 
-def has_duplicate_ids(*args: List[int]):
+def has_duplicate_ids(*args: List[Dict]):
 
     ids = []
     for list in args:

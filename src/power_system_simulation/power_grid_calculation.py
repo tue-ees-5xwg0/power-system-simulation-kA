@@ -1,5 +1,5 @@
 """
-This module contains the power grid model and the processing around it class.
+This module contains the power grid class and the processing around it.
 """
 
 import copy
@@ -29,18 +29,19 @@ _OPTIMIZATION_CRITERIA = Literal["minimal_deviation_u_pu", "minimal_energy_loss"
 
 class PowerGrid:
     """
-    This class contains the processing around the power_grid_model from the power_grid_model package.
+    This class functions as a powergrid with a power_grid_model and power_grid_graph build into it for integrated
+    power-flow calculations and graph processing.
     """
 
     def __init__(self, power_grid_path: str, *, p_profile_path: str = None, q_profile_path: str = None):
 
         self.power_grid = None
         self.load_grid_json(power_grid_path)
-        self.model = PowerGridModel(self.power_grid)
-        # self.graph = create_graph(self.power_grid.node, self.power_grid.line, self.power_grid.)
+        self.graph = None
 
         self.p_profile = None
         self.q_profile = None
+
         if p_profile_path is not None:
             self.load_p_profile_parquet(p_profile_path)
 
@@ -61,17 +62,8 @@ class PowerGrid:
     def load_q_profile_parquet(self, path):
         self.q_profile = pd.read_parquet(path)
 
-    def update(self):
-        """
-        Updates the power_grid_model to the current power grid graph.
-        """
-        self._validate_power_grid()
-        self.make_graph()
-        self.model.update(self.power_grid)
-
     def make_graph(self):
-        # TODO convert the grid data to a graph using graph_processing.creategraph()
-        pass
+        self.graph = create_graph(self.power_grid)
 
     def run(self):
         """
@@ -79,7 +71,7 @@ class PowerGrid:
         model and save the output to batch_output, voltage_summary and line_summary.
         """
         self._validate_power_profiles()
-
+        model = PowerGridModel(self.power_grid)
         num_time_stamps, num_sym_loads = self.p_profile.shape
 
         update_sym_load = initialize_array(DatasetType.update, ComponentType.sym_load, (num_time_stamps, num_sym_loads))
@@ -89,7 +81,7 @@ class PowerGrid:
 
         time_series_mutation = {ComponentType.sym_load: update_sym_load}
 
-        self.batch_output = self.model.calculate_power_flow(
+        self.batch_output = model.calculate_power_flow(
             update_data=time_series_mutation,
             symmetric=True,
             error_tolerance=1e-8,
@@ -202,12 +194,13 @@ class PowerGrid:
         return output
 
 
-# def ev_penetration_level(power_grid: PowerGrid, ev_charging_profile_path: str, penetration_level: float):
-#     pg_copy = copy.deepcopy(power_grid)
+def ev_penetration_level(power_grid: PowerGrid, ev_charging_profile_path: str, penetration_level: float):
+    
+    pg_copy = copy.deepcopy(power_grid)
+    
+    # TODO do something with the pg to randomly distribute ev chargers from the ev
 
-#     # TODO do something with the pg to randomly distribute ev chargers from the ev
-
-#     return [pg_copy.voltage_summary, pg_copy.line_summary]
+    return [pg_copy.voltage_summary, pg_copy.line_summary]
 
 
 # def optimum_tap_position(

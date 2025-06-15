@@ -5,7 +5,9 @@ import pytest
 from power_grid_model import ComponentType
 from test_utilities import compare_pandas_dataframes_fp
 
-from power_system_simulation.power_grid_calculation import (  # ev_penetration_level,; optimum_tap_position,; n_1_calculation
+from power_system_simulation.power_grid_calculation import ( 
+    ev_penetration_level, 
+    # optimum_tap_position, n_1_calculation,
     LoadProfileMismatchError,
     PowerGrid,
 )
@@ -30,7 +32,6 @@ def test_power_grid_model_normal_init():
 
     assert test_grid.p_profile.shape == (10, 3)
     assert test_grid.p_profile.shape == (10, 3)
-    assert test_grid.model is not None
 
 
 def test_power_grid_model_run_output():
@@ -83,8 +84,8 @@ def test_power_grid_model_get_line_summary():
     assert test_results[0]
 
 
-# def test_feature_ev_penetration_level():
+def test_feature_ev_penetration_level():
 
-#     test_grid = PowerGrid(pgm_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
+    test_grid = PowerGrid(pgm_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
 
-#     ev_penetration_level(test_grid, p_profile_small_path, 0.5)
+    ev_penetration_level(test_grid, ev_p_profile_small_path, 0.5)
