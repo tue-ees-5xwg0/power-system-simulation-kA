@@ -192,15 +192,58 @@ class PowerGrid:
 #     return [pg_copy.voltage_summary, pg_copy.line_summary]
 
 
-# def optimum_tap_position(
-#     power_grid: PowerGrid, optimization_criterium: optimization_criteria = "minimal_deviation_u_pu"
-# ):
-#     pg_copy = copy.deepcopy(power_grid)
-#     options = get_args(optimization_criteria)
-#     assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
+def optimum_tap_position(
+    power_grid: PowerGrid, optimization_criterium: _OPTIMIZATION_CRITERIA = "minimal_deviation_u_pu"
+):
+    pg_copy = copy.deepcopy(power_grid)
+    options = get_args(_OPTIMIZATION_CRITERIA)
+    assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
+    
+    transformers = pg_copy.power_grid["transformer"]
+    if len(transformers) != 1:
+        raise ValidationError("The LV grid must contain exactly one transformer.")
+    
+    transformer_id = transformers[0]["id"]
+    original_tap = transformers[0].get("tap_pos", 0)
 
-#     # TODO do something with the pg like iterate with different tap positions and return the optimum
-#     # tap position for the transformer.
+    tap_range = range(-5, 6)
+
+    best_score = float("inf")
+    best_tap = original_tap
+
+    for tap_pos in tap_range:
+     
+     for transformer in pg_copy.power_grid["transformer"]:
+         transformer["tap_pos"] = tap_pos
+            
+     try:
+        pg_copy.run()
+     except Exception:
+        continue  # Skip invalid tap positions
+     
+     if optimization_criterium == "minimal_energy_loss":
+            total_energy_loss = pg_copy.line_summary["energy_loss"].sum()
+            score = total_energy_loss
+
+     elif optimization_criterium == "minimal_deviation_u_pu":
+        voltage_dev = (
+            abs(pg_copy.voltage_summary["max_u_pu"] - 1.0) +
+            abs(pg_copy.voltage_summary["min_u_pu"] - 1.0)
+        )
+        score = voltage_dev.mean()
+
+     if score < best_score:
+        best_score = score
+        best_tap = tap_pos
+
+    return best_tap
+
+
+
+
+
+
+    # TODO do something with the pg like iterate with different tap positions and return the optimum tap position for the transformer.
 
 #     return optimum_tap_position
 
