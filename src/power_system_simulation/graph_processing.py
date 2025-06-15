@@ -30,17 +30,6 @@ def create_graph(power_grid) -> nx.Graph:
     sym_loads = power_grid["sym_load"]
     transformer = power_grid["transformer"]
 
-    if has_duplicate_ids(nodes, lines, source, sym_loads, transformer):
-        raise IDNotUniqueError("There are components with duplicate IDs.")
-    if not has_node_ids(nodes, lines):
-        raise IDNotFoundError("Line(s) contain(s) non-existent node ID.")
-    if not has_node_ids(nodes, sym_loads):
-        raise IDNotFoundError("Sym_load(s) contain(s) non-existent node ID.")
-    if not has_node_ids(nodes, transformer):
-        raise IDNotFoundError("Transformer contains non-existent node ID.")
-    if not has_node_ids(nodes, source):
-        raise IDNotFoundError("The provided source_node_id is not in the node list.")
-
     graph = nx.Graph()
 
     for node in nodes:
@@ -71,13 +60,17 @@ def create_graph(power_grid) -> nx.Graph:
 
     graph.graph["source_node_id"] = source[0]["node"]
 
+    validate_graph(graph)
+
+    return graph
+
+
+def validate_graph(graph):
     filtered = filter_disabled_edges(graph)
     if not nx.is_connected(filtered):
         raise GraphNotFullyConnectedError("The graph is not fully connected.")
     if is_cyclic(filtered):
         raise GraphCycleError("The graph contains a cycle.")
-
-    return graph
 
 
 def filter_disabled_edges(graph, remove_sym_loads=False):

@@ -3,7 +3,6 @@ This module contains the power grid class and the processing around it.
 """
 
 from typing import Optional
-
 from typing import Literal
 
 import numpy as np
@@ -17,10 +16,23 @@ from power_grid_model import (
 )
 from power_grid_model.utils import json_deserialize
 
-from power_system_simulation.graph_processing import create_graph
+
+from power_system_simulation.exceptions import NoValidOutputDataError, LoadProfileMismatchError
+from power_system_simulation.data_validation import validate_power_grid_data
+from power_system_simulation.graph_processing import create_graph, validate_graph
 
 optimization_criteria = Literal["minimal_deviation_u_pu", "minimal_energy_loss"]
 
+
+def load_grid_json(path):
+    """
+    Loads the power_grid from a specified .PGM file and validates it.
+    """
+    with open(path, "r", encoding="utf-8") as file:
+        power_grid = json_deserialize(file.read())
+    validate_power_grid_data(power_grid)
+
+    return power_grid
 
 class PowerGrid:
     """
@@ -30,29 +42,21 @@ class PowerGrid:
 
     def __init__(self, power_grid_path: str, *, p_profile_path: str = None, q_profile_path: str = None):
 
-        self.power_grid = None
-        self.load_grid_json(power_grid_path)
-        self.graph = None
-
+        self.power_grid = load_grid_json(power_grid_path)
+        self.graph = create_graph(self.power_grid)
         self.p_profile = None
         self.q_profile = None
 
         if p_profile_path is not None:
-            self.load_p_profile_parquet(p_profile_path)
+            self.p_profile = pd.read_parquet(p_profile_path)
 
         if q_profile_path is not None:
-            self.load_q_profile_parquet(q_profile_path)
-
+            self.q_profile = pd.read_parquet(q_profile_path)
+        
         self.batch_output = None
         self.voltage_summary = None
         self.line_summary = None
 
-    def load_grid_json(self, path):
-        """
-        Loads the power_grid from a specified .PGM file.
-        """
-        with open(path, "r", encoding="utf-8") as file:
-            self.power_grid = json_deserialize(file.read())
 
     def load_p_profile_parquet(self, path):
         """
@@ -66,18 +70,13 @@ class PowerGrid:
         """
         self.q_profile = pd.read_parquet(path)
 
-    def make_graph(self):
-        """
-        Creates a graph from current power_grid data and saves it to self.graph.
-        """
-        self.graph = create_graph(self.power_grid)
-
     def run(self):
         """
         After initializing the class and setting up the model properties, this function can be run to process the
         model and save the output to batch_output, voltage_summary and line_summary.
         """
         self._validate_power_profiles()
+
         model = PowerGridModel(self.power_grid)
         num_time_stamps, num_sym_loads = self.p_profile.shape
 
@@ -100,26 +99,10 @@ class PowerGrid:
         self.line_summary = self._get_line_summary()
 
     def _validate_power_profiles(self):
-        # if self.p_profile is None:
-        #     raise ValidationError(
-        #         "No data found in the p_profile. Make sure an active power profile is loaded into the object."
-        #     )
-        # if self.q_profile is None:
-        #     raise ValidationError(
-        #         "No data found in the q_profile. Make sure an reactive power profile is loaded into the object."
-        #     )
-
-        # if not self.p_profile.index.equals(self.q_profile.index):
-        #     raise LoadProfileMismatchError("Timestamps do not match between p and q profiles.")
-        # if not self.p_profile.columns.equals(self.q_profile.columns):
-        #     raise LoadProfileMismatchError("Load IDs do not match between p and q profiles.")
-        pass
-
-    def _validate_power_grid(self):
-        try:
-            assert self.power_grid is not None
-        except:
-            raise ValueError("power_grid not found, please make a power grid first.")
+        if not self.p_profile.index.equals(self.q_profile.index):
+            raise LoadProfileMismatchError("Timestamps do not match between p and q profiles.")
+        if not self.p_profile.columns.equals(self.q_profile.columns):
+            raise LoadProfileMismatchError("Load IDs do not match between p and q profiles.")
 
     def _get_voltage_summary(self):
         """
@@ -150,7 +133,7 @@ class PowerGrid:
         output["max_u_pu"] = temp_max_value
         output["min_u_pu_node"] = temp_min_node
         output["min_u_pu"] = temp_min_value
-
+        
         return output
 
     def _get_line_summary(self):

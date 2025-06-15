@@ -41,3 +41,11 @@ class GraphCycleError(Exception):
 
 class EdgeAlreadyDisabledError(Exception):
     "Error when trying to disable an edge that is already disabled."
+
+
+class NoValidOutputDataError(Exception):
+    """Raised when there is no output from the power_grid_model to work with."""
+
+
+class LoadProfileMismatchError(Exception):
+    """Raised when the active and reactive load profiles do not align."""

@@ -2,6 +2,7 @@ from contextlib import nullcontext as does_not_raise
 
 import pytest
 from power_grid_model.utils import json_deserialize
+from power_system_simulation.power_grid_calculation import load_grid_json
 
 from power_system_simulation.data_validation import *
 from power_system_simulation.exceptions import *
@@ -56,12 +57,9 @@ def test_init_err1_duplicate_node_ids():
                     |
                    (18)
     """
-
-    with open(base_test_data_path + "err_duplicate_items" + ".json", "r", encoding="utf-8") as file:
-        power_grid = json_deserialize(file.read())
-
+        
     with pytest.raises(IDNotUniqueError) as output:
-        create_graph(power_grid)
+        load_grid_json(base_test_data_path + "err_duplicate_items" + ".json")
     assert output.value.args[0] == "There are components with duplicate IDs."
 
 
@@ -81,12 +79,9 @@ def test_init_err3_invalid_sym_load_node_id():
                     |
                    (18)
     """
-
-    with open(base_test_data_path + "err_sym_load_node_invalid" + ".json", "r", encoding="utf-8") as file:
-        power_grid = json_deserialize(file.read())
-
+    
     with pytest.raises(IDNotFoundError) as output:
-        create_graph(power_grid)
+        load_grid_json(base_test_data_path + "err_sym_load_node_invalid" + ".json")
     assert output.value.args[0] == "Sym_load(s) contain(s) non-existent node ID."
 
 
@@ -107,11 +102,8 @@ def test_init_err3_invalid_line_node_id():
                    (18)
     """
 
-    with open(base_test_data_path + "err_line_node_invalid" + ".json", "r", encoding="utf-8") as file:
-        power_grid = json_deserialize(file.read())
-
     with pytest.raises(IDNotFoundError) as output:
-        create_graph(power_grid)
+        load_grid_json(base_test_data_path + "err_line_node_invalid" + ".json")
     assert output.value.args[0] == "Line(s) contain(s) non-existent node ID."
 
 
@@ -132,11 +124,8 @@ def test_init_err5_invalid_source_node_id():
                    (18)
     """
 
-    with open(base_test_data_path + "err_source_node_id_invalid" + ".json", "r", encoding="utf-8") as file:
-        power_grid = json_deserialize(file.read())
-
     with pytest.raises(IDNotFoundError) as output:
-        create_graph(power_grid)
+        load_grid_json(base_test_data_path + "err_source_node_id_invalid" + ".json")
     assert output.value.args[0] == "The provided source_node_id is not in the node list."
 
 

@@ -7,7 +7,7 @@ from typing import Dict, List
 import networkx as nx
 import numpy as np
 
-from power_system_simulation.exceptions import IDNotFoundError
+from power_system_simulation.exceptions import IDNotFoundError, IDNotUniqueError
 
 
 def has_duplicate_ids(*args: np.ndarray):
@@ -52,3 +52,22 @@ def is_edge_enabled(graph: nx.Graph, edge_id: int) -> bool:
         if d.get("id") == edge_id:
             return d.get("to_status", False) and d.get("to_status", False)
     raise IDNotFoundError(f"The provided edge {edge_id} is not in the ID list.")
+
+def validate_power_grid_data(power_grid):
+    nodes = power_grid["node"]
+    lines = power_grid["line"]
+    source = power_grid["source"]
+    sym_loads = power_grid["sym_load"]
+    transformer = power_grid["transformer"]
+
+    if has_duplicate_ids(nodes, lines, source, sym_loads, transformer):
+        raise IDNotUniqueError("There are components with duplicate IDs.")
+    if not has_node_ids(nodes, lines):
+        raise IDNotFoundError("Line(s) contain(s) non-existent node ID.")
+    if not has_node_ids(nodes, sym_loads):
+        raise IDNotFoundError("Sym_load(s) contain(s) non-existent node ID.")
+    if not has_node_ids(nodes, transformer):
+        raise IDNotFoundError("Transformer contains non-existent node ID.")
+    if not has_node_ids(nodes, source):
+        raise IDNotFoundError("The provided source_node_id is not in the node list.")
+    
