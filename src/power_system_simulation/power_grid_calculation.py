@@ -5,7 +5,6 @@ This module contains the power grid class and the processing around it.
 import copy
 from typing import Literal, Optional, get_args
 
-
 import numpy as np
 import pandas as pd
 from power_grid_model import (
@@ -16,14 +15,18 @@ from power_grid_model import (
     initialize_array,
 )
 
-from power_system_simulation.data_validation import validate_power_grid_data, validate_meta_data, validate_power_profiles_timestamps, validate_ev_charging_profile, load_grid_json, load_meta_data_json
+from power_system_simulation.data_validation import (
+    load_grid_json,
+    load_meta_data_json,
+    validate_ev_charging_profile,
+    validate_meta_data,
+    validate_power_grid_data,
+    validate_power_profiles_timestamps,
+)
 from power_system_simulation.exceptions import LoadProfileMismatchError, ValidationError
 from power_system_simulation.graph_processing import create_graph
 
 optimization_criteria = Literal["minimal_deviation_u_pu", "minimal_energy_loss"]
-
-
-
 
 
 class PowerGrid:
@@ -33,7 +36,11 @@ class PowerGrid:
     """
 
     def __init__(
-        self, power_grid_path: str, power_grid_meta_data_path: str, p_profile_path: Optional[str] = None, q_profile_path: Optional[str] = None
+        self,
+        power_grid_path: str,
+        power_grid_meta_data_path: str,
+        p_profile_path: Optional[str] = None,
+        q_profile_path: Optional[str] = None,
     ):
 
         self.power_grid = load_grid_json(power_grid_path)
@@ -41,7 +48,6 @@ class PowerGrid:
         self.meta_data = load_meta_data_json(power_grid_meta_data_path)
         validate_meta_data(self.power_grid, self.meta_data)
         self.graph = create_graph(self.power_grid)
-
 
         self.p_profile = None
         self.q_profile = None
@@ -104,7 +110,7 @@ class PowerGrid:
     def _validate_power_profiles_load_ids(self):
         if not self.p_profile.columns.equals(self.q_profile.columns):
             raise LoadProfileMismatchError("Load IDs do not match between power profiles.")
-        
+
         for profile_id in self.p_profile.columns:
             found = False
             for load in self.power_grid["sym_load"]:
@@ -112,7 +118,6 @@ class PowerGrid:
                     found = True
             if not found:
                 raise LoadProfileMismatchError(f"Load ID {profile_id} of in power_profiles not found in sym_loads.")
-
 
     def _get_voltage_summary(self):
         """
@@ -196,10 +201,9 @@ class PowerGrid:
 def ev_penetration_level(power_grid: PowerGrid, ev_charging_profile_path: str, penetration_level: float):
 
     ev_charging_profile = pd.read_parquet(ev_charging_profile_path)
-    
+
     validate_ev_charging_profile(power_grid, ev_charging_profile)
     validate_power_profiles_timestamps(power_grid.p_profile, ev_charging_profile)
-
 
     # pg_copy = copy.deepcopy(power_grid)
 
@@ -209,15 +213,13 @@ def ev_penetration_level(power_grid: PowerGrid, ev_charging_profile_path: str, p
     pass
 
 
-def optimum_tap_position(
-    power_grid: PowerGrid, optimization_criterium: optimization_criteria
-):
+def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimization_criteria):
     pg_copy = copy.deepcopy(power_grid)
     options = get_args(optimization_criteria)
     assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
 
     transformers = pg_copy.power_grid["transformer"]
-    
+
     # TODO: move this validation to the data input stage of the PowerGrid object
     if len(transformers) != 1:
         raise ValidationError("The LV grid must contain exactly one transformer.")

@@ -5,8 +5,8 @@ import pytest
 from power_grid_model import ComponentType
 from test_utilities import compare_pandas_dataframes_fp
 
-from power_system_simulation.exceptions import *
 from power_system_simulation.data_validation import *
+from power_system_simulation.exceptions import *
 from power_system_simulation.power_grid_calculation import *
 
 # testdata filepaths
@@ -26,7 +26,9 @@ voltage_summary_small_path = "tests/test_data/small_power_grid/test_voltage_summ
 
 
 def test_power_grid_init_normal():
-    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
+    test_grid = PowerGrid(
+        pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
+    )
 
     assert test_grid.p_profile.shape == (960, 4)
     assert test_grid.p_profile.shape == (960, 4)
@@ -67,7 +69,9 @@ def test_power_grid_init_err_load_profile_mismatch():
 
 
 def test_power_grid_run_model():
-    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
+    test_grid = PowerGrid(
+        pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
+    )
     test_grid.run()
 
     # checking if there is something stored in batch_output
@@ -78,7 +82,9 @@ def test_power_grid_run_model():
 
 
 def test_power_grid_get_voltage_summary():
-    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
+    test_grid = PowerGrid(
+        pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
+    )
 
     # test initialized to None
     assert test_grid.voltage_summary is None
@@ -98,7 +104,9 @@ def test_power_grid_get_voltage_summary():
 
 def test_power_grid_get_line_summary():
 
-    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
+    test_grid = PowerGrid(
+        pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
+    )
 
     # test initialized to None
     assert test_grid.line_summary is None
@@ -118,24 +126,28 @@ def test_power_grid_get_line_summary():
 
 def test_feature_ev_penetration_level():
 
-    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
+    test_grid = PowerGrid(
+        pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
+    )
     ev_penetration_level(test_grid, ev_p_profile_small_path, 0.5)
 
 
-def test_feature_optimum_tap_position():
-    
-    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
+# def test_feature_optimum_tap_position():
 
-    optimum = optimum_tap_position(test_grid, "minimal_energy_loss")
+#     test_grid = PowerGrid(
+#         pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
+#     )
+
+#     optimum = optimum_tap_position(test_grid, "minimal_energy_loss")
 
 
 def test_feature_n_1_calculation():
 
-    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
+    test_grid = PowerGrid(
+        pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
+    )
 
 
 def test_load_meta_data():
 
     validate_meta_data(load_grid_json(pgm_small_path), load_meta_data_json(meta_data_small_path))
-
-

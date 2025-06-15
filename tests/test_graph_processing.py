@@ -59,7 +59,7 @@ def test_init_err1_duplicate_node_ids():
     """
 
     with pytest.raises(IDNotUniqueError) as output:
-        load_grid_json(base_test_data_path + "err_duplicate_items" + ".json")
+        validate_power_grid_data(load_grid_json(base_test_data_path + "err_duplicate_items" + ".json"))
     assert output.value.args[0] == "There are components with duplicate IDs."
 
 
@@ -81,7 +81,7 @@ def test_init_err3_invalid_sym_load_node_id():
     """
 
     with pytest.raises(IDNotFoundError) as output:
-        load_grid_json(base_test_data_path + "err_sym_load_node_invalid" + ".json")
+        validate_power_grid_data(load_grid_json(base_test_data_path + "err_sym_load_node_invalid" + ".json"))
     assert output.value.args[0] == "Sym_load(s) contain(s) non-existent node ID."
 
 
@@ -103,7 +103,7 @@ def test_init_err3_invalid_line_node_id():
     """
 
     with pytest.raises(IDNotFoundError) as output:
-        load_grid_json(base_test_data_path + "err_line_node_invalid" + ".json")
+        validate_power_grid_data(load_grid_json(base_test_data_path + "err_line_node_invalid" + ".json"))
     assert output.value.args[0] == "Line(s) contain(s) non-existent node ID."
 
 
@@ -125,7 +125,7 @@ def test_init_err5_invalid_source_node_id():
     """
 
     with pytest.raises(IDNotFoundError) as output:
-        load_grid_json(base_test_data_path + "err_source_node_id_invalid" + ".json")
+        validate_power_grid_data(load_grid_json(base_test_data_path + "err_source_node_id_invalid" + ".json"))
     assert output.value.args[0] == "The provided source_node_id is not in the node list."
 
 

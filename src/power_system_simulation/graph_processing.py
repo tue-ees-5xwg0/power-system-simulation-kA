@@ -163,8 +163,6 @@ def find_downstream_vertices(graph: nx.Graph, edge_id: int) -> List[int]:
         downstream_vertex = v
     elif bfs_tree.has_edge(v, u):
         downstream_vertex = u
-    else:
-        return []
 
     subtree_nodes = list(nx.descendants(bfs_tree, downstream_vertex))
     subtree_nodes.append(downstream_vertex)
