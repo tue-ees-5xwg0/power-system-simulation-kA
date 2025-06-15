@@ -2,6 +2,8 @@
 This module contains the power grid class and the processing around it.
 """
 
+from typing import Optional
+
 from typing import Literal
 
 import numpy as np
