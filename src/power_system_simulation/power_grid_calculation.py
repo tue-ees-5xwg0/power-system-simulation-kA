@@ -2,7 +2,8 @@
 This module contains the power grid class and the processing around it.
 """
 
-from typing import Literal, Optional
+import copy
+from typing import Literal, Optional, get_args
 
 import numpy as np
 import pandas as pd
@@ -16,7 +17,7 @@ from power_grid_model import (
 from power_grid_model.utils import json_deserialize
 
 from power_system_simulation.data_validation import validate_power_grid_data
-from power_system_simulation.exceptions import LoadProfileMismatchError
+from power_system_simulation.exceptions import LoadProfileMismatchError, ValidationError
 from power_system_simulation.graph_processing import create_graph
 
 optimization_criteria = Literal["minimal_deviation_u_pu", "minimal_energy_loss"]
@@ -193,59 +194,52 @@ class PowerGrid:
 
 
 def optimum_tap_position(
-    power_grid: PowerGrid, optimization_criterium: _OPTIMIZATION_CRITERIA = "minimal_deviation_u_pu"
+    power_grid: PowerGrid, optimization_criterium: optimization_criteria = "minimal_deviation_u_pu"
 ):
     pg_copy = copy.deepcopy(power_grid)
-    options = get_args(_OPTIMIZATION_CRITERIA)
+    options = get_args(optimization_criteria)
     assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
-    
+
     transformers = pg_copy.power_grid["transformer"]
+    
+    # TODO: move this validation to the data input stage of the PowerGrid object
     if len(transformers) != 1:
         raise ValidationError("The LV grid must contain exactly one transformer.")
-    
+
     transformer_id = transformers[0]["id"]
     original_tap = transformers[0].get("tap_pos", 0)
 
+    # TODO: extract this data from the transformer entry in the PowerGrid.power_grid data
     tap_range = range(-5, 6)
 
     best_score = float("inf")
     best_tap = original_tap
 
     for tap_pos in tap_range:
-     
-     for transformer in pg_copy.power_grid["transformer"]:
-         transformer["tap_pos"] = tap_pos
-            
-     try:
-        pg_copy.run()
-     except Exception:
-        continue  # Skip invalid tap positions
-     
-     if optimization_criterium == "minimal_energy_loss":
+
+        for transformer in pg_copy.power_grid["transformer"]:
+            transformer["tap_pos"] = tap_pos
+
+        try:
+            pg_copy.run()
+        except Exception:
+            continue  # Skip invalid tap positions
+
+        if optimization_criterium == "minimal_energy_loss":
             total_energy_loss = pg_copy.line_summary["energy_loss"].sum()
             score = total_energy_loss
 
-     elif optimization_criterium == "minimal_deviation_u_pu":
-        voltage_dev = (
-            abs(pg_copy.voltage_summary["max_u_pu"] - 1.0) +
-            abs(pg_copy.voltage_summary["min_u_pu"] - 1.0)
-        )
-        score = voltage_dev.mean()
+        elif optimization_criterium == "minimal_deviation_u_pu":
+            voltage_dev = abs(pg_copy.voltage_summary["max_u_pu"] - 1.0) + abs(
+                pg_copy.voltage_summary["min_u_pu"] - 1.0
+            )
+            score = voltage_dev.mean()
 
-     if score < best_score:
-        best_score = score
-        best_tap = tap_pos
+        if score < best_score:
+            best_score = score
+            best_tap = tap_pos
 
     return best_tap
-
-
-
-
-
-
-    # TODO do something with the pg like iterate with different tap positions and return the optimum tap position for the transformer.
-
-#     return optimum_tap_position
 
 
 # def n_1_calculation(power_grid: PowerGrid):
