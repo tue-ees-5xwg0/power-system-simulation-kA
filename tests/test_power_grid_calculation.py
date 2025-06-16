@@ -125,8 +125,21 @@ def test_power_grid_get_line_summary():
 
 def test_feature_ev_penetration_level():
 
-    test_grid = PowerGrid(pgm_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
+    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
+    
 
 def test_optimum_tap_position():
-     test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
      
+    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
+     
+
+def test_n_1_calculation():
+
+    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
+
+    with pytest.raises(IDNotFoundError) as output:
+        n_1_calculation(test_grid, 5)
+    assert output.value.args[0] == "The chosen edge 5 is not in the ID list."
+
+    test = n_1_calculation(test_grid, 20)
+    

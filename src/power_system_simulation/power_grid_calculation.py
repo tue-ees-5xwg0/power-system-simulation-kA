@@ -189,7 +189,7 @@ class PowerGrid:
         temp_max_value = []
         temp_min_timestamp = []
         temp_min_value = []
-
+        
         for line in lines_swapped:
             i_max = line["loading"].argmax()
             temp_max_value.append(line[i_max]["loading"])
@@ -214,6 +214,8 @@ def ev_penetration_level(
     This function randomly adds EV charging pofiles to a a percentage of household (sym_loads) based on
     a penetration level. Then it runs a time-series powerflow and returns the voltage and line summaries.
     """
+    power_grid.run()
+
     power_grid_copy = copy.deepcopy(power_grid)
     rndm = random.Random(seed)
 
@@ -250,7 +252,6 @@ def ev_penetration_level(
             ev_profiles.drop(columns=[ev_profile_id], inplace=True)
 
     power_grid_copy.run()
-
     return [power_grid_copy.voltage_summary, power_grid_copy.line_summary]
 
 
@@ -293,12 +294,6 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
 def n_1_calculation(power_grid: PowerGrid, line_id: int):
     output = pd.DataFrame(columns=["maximum_line_loading_id", "maximum_line_loading_timestamp", "maximum_line_loading"])
     output.index.name = "alternative_line"
-    power_grid.run()
-    print(power_grid.batch_output["line"])
-
-
-    # if not is_edge_enabled(power_grid.graph, line_id):
-    #     raise EdgeAlreadyDisabledError(f"Line {line_id} is already disabled.")
     
     alternative_lines = find_alternative_edges(power_grid.graph, line_id)
 
@@ -327,11 +322,5 @@ def n_1_calculation(power_grid: PowerGrid, line_id: int):
             "maximum_line_loading": summary.loc[index, "max_loading"]}
         
         del power_grid_copy
-
-
-
-    # TODO create alternative power_grids, one for each different alternative line. Summarize the
-    # results into the output table. Use
-    # the graph_processor to find out which lines to use.
 
     return output
