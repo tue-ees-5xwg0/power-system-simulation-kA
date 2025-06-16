@@ -112,7 +112,7 @@ class PowerGrid:
             max_iterations=20,
             calculation_method=CalculationMethod.newton_raphson,
         )
-
+        # TODO delete model
         self.voltage_summary = self._get_voltage_summary()
         self.line_summary = self._get_line_summary()
 
@@ -258,42 +258,31 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
     pg_copy = copy.deepcopy(power_grid)
     options = get_args(optimization_criteria)
     assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
+    
+    min= power_grid.power_grid["transformer"][0]["tap_min"]
+    max= power_grid.power_grid["transformer"][0]["tap_max"]
+    tap_range = range(max, min+1)
+    
 
-    transformers = pg_copy.power_grid["transformer"]
-
-    # TODO: move this validation to the data input stage of the PowerGrid object
-    if len(transformers) != 1:
-        raise ValidationError("The LV grid must contain exactly one transformer.")
-
-    transformer_id = transformers[0]["id"]
-    original_tap = transformers[0].get("tap_pos", 0)
-
-    # TODO: extract this data from the transformer entry in the PowerGrid.power_grid data
-    tap_range = range(-5, 6)
-
+    # lower is better
     best_score = float("inf")
-    best_tap = original_tap
+    best_tap = -1
 
     for tap_pos in tap_range:
-
-        for transformer in pg_copy.power_grid["transformer"]:
-            transformer["tap_pos"] = tap_pos
-
-        try:
-            pg_copy.run()
-        except Exception:
-            continue  # Skip invalid tap positions
-
+        pg_copy.power_grid["transformer"][0]["tap_pos"] = tap_pos
+        pg_copy.run()
+        
         if optimization_criterium == "minimal_energy_loss":
             total_energy_loss = pg_copy.line_summary["energy_loss"].sum()
             score = total_energy_loss
 
         elif optimization_criterium == "minimal_deviation_u_pu":
-            voltage_dev = abs(pg_copy.voltage_summary["max_u_pu"] - 1.0) + abs(
-                pg_copy.voltage_summary["min_u_pu"] - 1.0
-            )
-            score = voltage_dev.mean()
+            voltage_dev = abs(pg_copy.voltage_summary["max_u_pu"] - 1.0) + abs(pg_copy.voltage_summary["min_u_pu"] - 1.0)
 
+            score = voltage_dev.mean()
+        
+        print(score)
+        
         if score < best_score:
             best_score = score
             best_tap = tap_pos
