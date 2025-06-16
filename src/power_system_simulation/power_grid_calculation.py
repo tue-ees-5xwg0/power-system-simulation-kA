@@ -1,5 +1,6 @@
 """
-This module contains the power grid class and the processing around it.
+This module contains the `PowerGrid` class and related functions for simulating and analyzing
+low-voltage (LV) power grids using time-series power flow analysis.
 """
 
 import copy

@@ -1,5 +1,15 @@
 """
-This is a file containing the GraphProcessor object class to process the power grid and supplemental functions.
+This module contains functionalities for processing and validating low-voltage (LV) power grid data graphs.
+
+It includes functionality to:
+- Convert a PGM-format power grid input into a NetworkX graph
+- Validate the graph for connectivity and cycles
+- Filter disabled edges (e.g., sym_load connections)
+- Identify all downstream nodes from a given edge
+- Identify alternative edges that can restore connectivity when a line is disconnected
+- Enable or disable individual edges by ID
+
+These functions form the foundation for topology-based analysis in LV grids, including EV penetration analysis and N-1 contingency calculations.
 """
 
 import copy
