@@ -17,10 +17,9 @@ from power_grid_model import (
     initialize_array,
 )
 
-from power_system_simulation.exceptions import EdgeAlreadyDisabledError, LoadProfileMismatchError, ValidationError
+from power_system_simulation.exceptions import LoadProfileMismatchError
 from power_system_simulation.graph_processing import create_graph, find_alternative_edges, find_downstream_vertices
 from power_system_simulation.input_data_validation import (
-    is_edge_enabled,
     load_grid_json,
     load_meta_data_json,
     validate_ev_charging_profile,
@@ -100,7 +99,9 @@ class PowerGrid:
             max_iterations=20,
             calculation_method=CalculationMethod.newton_raphson,
         )
-        # TODO delete model
+
+        del model
+
         self.voltage_summary = self._get_voltage_summary()
         self.line_summary = self._get_line_summary()
 
@@ -286,6 +287,11 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
 
 
 def n_1_calculation(power_grid: PowerGrid, line_id: int):
+    """
+    This function returns an overview of possible alternative lines when a provided line is disabled. This overview
+    includes the maximum line loading and timestampt per alternative line.
+    """
+
     # initialize output
     output = pd.DataFrame(columns=["maximum_line_loading_id", "maximum_line_loading_timestamp", "maximum_line_loading"])
     output.index.name = "alternative_line"

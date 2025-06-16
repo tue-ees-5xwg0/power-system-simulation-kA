@@ -3,7 +3,7 @@ This module contains all the functions used for validating the PGM input data af
 """
 
 from json import load
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import networkx as nx
 import numpy as np
@@ -41,7 +41,7 @@ def has_node_ids(nodes: List[Dict], lines: List[Dict]):
         for line in lines:
             if (line["from_node"] not in node_ids) or (line["to_node"] not in node_ids):
                 return False
-    except:
+    except ValueError:
         for line in lines:
             if line["node"] not in node_ids:
                 return False
@@ -50,6 +50,9 @@ def has_node_ids(nodes: List[Dict], lines: List[Dict]):
 
 
 def has_valid_edges(*args: np.ndarray):
+    """
+    Checks if an edge is valid, meaning it is connected to 2 different nodes.
+    """
     for edges in args:
         for edge in edges:
             if edge["from_node"] == edge["to_node"]:
@@ -63,10 +66,8 @@ def is_edge_enabled(graph: nx.Graph, edge_id: int) -> bool:
     """
     for _, _, d in graph.edges(data=True):
         if d.get("id") == edge_id:
-            if d.get("to_status") == 1 and d.get("from_status") == 1:
-                return True
-            else:
-                return False
+            return d.get("to_status") == 1 and d.get("from_status") == 1
+
     raise IDNotFoundError(f"The provided edge {edge_id} is not in the ID list.")
 
 
@@ -102,7 +103,9 @@ def validate_power_grid_data(power_grid):
 
 
 def validate_meta_data(power_grid, meta_data):
-
+    """
+    Validates the metadata file of a power_grid.
+    """
     # validate that the feeder IDs correspond to a line ID
     feeder_lines = []
     for feeder in meta_data["lv_feeders"]:
@@ -121,14 +124,22 @@ def validate_meta_data(power_grid, meta_data):
 
 
 def validate_power_profiles_timestamps(profile1: pd.DataFrame, profile2: pd.DataFrame):
+    """
+    Validates the timestamps of 2 power_profiles correspond.
+    """
+
     if not profile1.index.equals(profile2.index):
         raise LoadProfileMismatchError("Timestamps do not match between power profiles.")
 
 
 def validate_ev_charging_profile(power_grid, ev_charging_profile):
+    """
+    Validates an ev_charging_profile set with whether it contains enough entries for a specified power_grid.
+    """
     if len(ev_charging_profile.columns) < len(power_grid.power_grid["sym_load"]):
         raise ValidationError(
-            "ev_charging_profile does not contain enough nodes for this power_grid (less power profiles than sym_loads)."
+            "ev_charging_profile does not contain enough nodes "
+            "for this power_grid (less power profiles than sym_loads)."
         )
 
 
