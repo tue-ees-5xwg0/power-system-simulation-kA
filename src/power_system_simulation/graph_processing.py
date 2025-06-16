@@ -6,8 +6,8 @@ import copy
 from typing import List
 
 import networkx as nx
+import numpy as np
 
-from power_system_simulation.input_data_validation import is_edge_enabled
 from power_system_simulation.exceptions import (
     EdgeAlreadyDisabledError,
     GraphCycleError,
@@ -15,20 +15,21 @@ from power_system_simulation.exceptions import (
     IDNotFoundError,
     ValidationError
 )
+from power_system_simulation.input_data_validation import is_edge_enabled
 
 
-def create_graph(power_grid) -> nx.Graph:
+def create_graph(power_grid_data: np.ndarray) -> nx.Graph:
     """
     This function is used to create a graph object from the NetworkX package which can be used to run checks and
     edits on the griddata. Input data should be in PGM format from the power-grid-model package. It should
     contain node, lines, sym_loads and exactly one transformer and source node.
     """
 
-    nodes = power_grid["node"]
-    lines = power_grid["line"]
-    source = power_grid["source"]
-    sym_loads = power_grid["sym_load"]
-    transformer = power_grid["transformer"]
+    nodes = power_grid_data["node"]
+    lines = power_grid_data["line"]
+    source = power_grid_data["source"]
+    sym_loads = power_grid_data["sym_load"]
+    transformer = power_grid_data["transformer"]
 
     graph = nx.Graph()
 
@@ -90,12 +91,12 @@ def filter_disabled_edges(graph, remove_sym_loads=False):
             for u, v, d in graph.edges(data=True)
             if (d.get("from_status") != 0 and d.get("to_status") != 0) and (d.get("type") != "sym_load")
         ]
-        enabled_nodes = [(n,d) for n, d in graph.nodes(data=True) if d.get("type") != "sym_load"]
+        enabled_nodes = [(n, d) for n, d in graph.nodes(data=True) if d.get("type") != "sym_load"]
     else:
         enabled_edges = [
             (u, v, d) for u, v, d in graph.edges(data=True) if (d.get("from_status") != 0 and d.get("to_status") != 0)
         ]
-        enabled_nodes = [(n,d) for n, d in graph.nodes(data=True)]
+        enabled_nodes = [(n, d) for n, d in graph.nodes(data=True)]
 
     filtered.add_nodes_from(enabled_nodes)
     filtered.add_edges_from(enabled_edges)
@@ -137,7 +138,7 @@ def is_cyclic(graph: nx.Graph) -> bool:
         return False
 
 
-def find_downstream_vertices(graph: nx.Graph, edge_id: int) -> List[int]:
+def find_downstream_vertices(graph: nx.Graph, edge_id: int, exclude_sym_loads: bool = True) -> List[int]:
     """
     Returns all nodes downstream of the provided edge, with respect to the graphs' source node
     """
@@ -152,7 +153,11 @@ def find_downstream_vertices(graph: nx.Graph, edge_id: int) -> List[int]:
             edge_vertices = (u, v)
             break
 
-    filtered_graph = filter_disabled_edges(graph, True)
+    if exclude_sym_loads:
+        filtered_graph = filter_disabled_edges(graph, True)
+    else:
+        filtered_graph = filter_disabled_edges(graph, False)
+
     try:
         bfs_tree = nx.bfs_tree(filtered_graph, graph.graph["source_node_id"])
 
@@ -192,30 +197,10 @@ def find_alternative_edges(graph: nx.Graph, disabled_edge_id: int) -> List[int]:
 
             # check per if whole graph is accesible
             # Since the graph is acyclic from the start, it will stay acyclic when enabling only one edge.
-            if not nx.is_connected(filter_disabled_edges(test_graph)):
+            if not nx.is_connected(filter_disabled_edges(test_graph, True)):
                 continue
                 # raise GraphNotFullyConnectedError("The graph is not fully connected.")
             valid_alternatives.append(candidate_edge_id)
 
     return valid_alternatives
 
-
-def find_lv_feeder_ids(graph: nx.Graph):
-    """
-    Maybe not needed due to meta_data file.
-
-    Finds the LV feeder line IDs from the power grid graph by identifying all lines
-    that originate from the transformer's low-voltage (to_node) side.
-    """
-    transformers = graph.get("transformer", [])
-    # TODO: Remove this if validation is done when constructing the graph
-    if len(transformers) != 1:
-        raise ValidationError("The LV grid must contain exactly one transformer.")
-
-    transformer_to_node = transformers[0]["to_node"]
-    lv_feeder_ids = [line["id"] for line in graph.get("line", []) if line["from_node"] == transformer_to_node]
-
-    if not lv_feeder_ids:
-        raise ValueError("No LV feeder lines found from transformer to_node.")
-
-    return lv_feeder_ids

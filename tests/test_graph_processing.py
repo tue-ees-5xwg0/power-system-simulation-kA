@@ -153,9 +153,11 @@ def test_filter_disabled_edges():
         power_grid = json_deserialize(file.read())
     with open(base_test_data_path + "graph_cycle_disabled_filtered" + ".json", "r", encoding="utf-8") as file:
         power_grid_filtered = json_deserialize(file.read())
-    with open(base_test_data_path + "graph_cycle_disabled_filtered_no_sym_loads" + ".json", "r", encoding="utf-8") as file:
+    with open(
+        base_test_data_path + "graph_cycle_disabled_filtered_no_sym_loads" + ".json", "r", encoding="utf-8"
+    ) as file:
         power_grid_filtered_no_sym_loads = json_deserialize(file.read())
-        
+
     test_graph_filtered = filter_disabled_edges(create_graph(power_grid))
     test_graph_filtered_no_sym_loads = filter_disabled_edges(create_graph(power_grid), True)
 

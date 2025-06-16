@@ -66,7 +66,10 @@ def is_edge_enabled(graph: nx.Graph, edge_id: int) -> bool:
     """
     for _, _, d in graph.edges(data=True):
         if d.get("id") == edge_id:
-            return d.get("to_status", False) and d.get("to_status", False)
+            if (d.get("to_status") == 1 and d.get("from_status") == 1):
+                return True
+            else:
+                return False
     raise IDNotFoundError(f"The provided edge {edge_id} is not in the ID list.")
 
 

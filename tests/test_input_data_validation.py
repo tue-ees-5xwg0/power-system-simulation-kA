@@ -6,6 +6,8 @@ from power_system_simulation.exceptions import *
 from power_system_simulation.input_data_validation import *
 
 base_test_data_path = "tests/test_data/incorrect_power_grids/"
+pgm_small_path = "tests/test_data/small_power_grid/input_network_data.json"
+meta_data_small_path = "tests/test_data/small_power_grid/meta_data.json"
 
 
 def test_init_err1_duplicate_node_ids():
@@ -95,3 +97,7 @@ def test_init_err5_invalid_source_node_id():
         validate_power_grid_data(load_grid_json(base_test_data_path + "err_source_node_id_invalid" + ".json"))
     assert output.value.args[0] == "The provided source_node_id is not in the node list."
 
+
+def test_load_and_validate_meta_data():
+
+    validate_meta_data(load_grid_json(pgm_small_path), load_meta_data_json(meta_data_small_path))

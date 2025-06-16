@@ -17,6 +17,8 @@ from power_grid_model import (
     initialize_array,
 )
 
+from power_system_simulation.exceptions import LoadProfileMismatchError, ValidationError, EdgeAlreadyDisabledError
+from power_system_simulation.graph_processing import create_graph, find_downstream_vertices, find_alternative_edges
 from power_system_simulation.input_data_validation import (
     load_grid_json,
     load_meta_data_json,
@@ -24,9 +26,8 @@ from power_system_simulation.input_data_validation import (
     validate_meta_data,
     validate_power_grid_data,
     validate_power_profiles_timestamps,
+    is_edge_enabled
 )
-from power_system_simulation.exceptions import LoadProfileMismatchError, ValidationError
-from power_system_simulation.graph_processing import create_graph, find_downstream_vertices, find_lv_feeder_ids
 
 optimization_criteria = Literal["minimal_deviation_u_pu", "minimal_energy_loss"]
 
@@ -111,7 +112,7 @@ class PowerGrid:
             max_iterations=20,
             calculation_method=CalculationMethod.newton_raphson,
         )
-
+        # TODO delete model
         self.voltage_summary = self._get_voltage_summary()
         self.line_summary = self._get_line_summary()
 
@@ -213,31 +214,26 @@ def ev_penetration_level(
     This function randomly adds EV charging pofiles to a a percentage of household (sym_loads) based on
     a penetration level. Then it runs a time-series powerflow and returns the voltage and line summaries.
     """
-    pg_copy = copy.deepcopy(power_grid)
+    power_grid_copy = copy.deepcopy(power_grid)
     rndm = random.Random(seed)
 
-    # Load EV profiles
+    # Load and validate EV profile
     ev_profiles = pd.read_parquet(ev_charging_profile_path)
-    available_ev_profiles = ev_profiles.copy()
-    ev_p_profile = pg_copy.p_profile.copy()
+    validate_ev_charging_profile(power_grid_copy, ev_profiles)
+    validate_power_profiles_timestamps(power_grid_copy.p_profile, ev_profiles)
 
     # Get grid data
-    sym_load_ids = pg_copy.p_profile.columns.tolist()
+    sym_load_ids = power_grid_copy.p_profile.columns.tolist()
     num_houses = len(sym_load_ids)
-    pg_copy_graph = create_graph(pg_copy.power_grid)
-    lv_feeder_ids = find_lv_feeder_ids(pg_copy.power_grid)
+    lv_feeder_ids = power_grid_copy.meta_data["lv_feeders"]
     num_feeders = len(lv_feeder_ids)
     num_EV_per_LV = math.floor(penetration_level * num_houses / num_feeders)
-
-    # Validate input data
-    validate_ev_charging_profile(pg_copy, ev_profiles)
-    validate_power_profiles_timestamps(power_grid.p_profile, ev_profiles)
 
     # Map feeders to downstream houses
     map_feeder_house = {}
     for feeder_id in lv_feeder_ids:
-        downstream_vertices = find_downstream_vertices(pg_copy_graph, feeder_id)
-        feeder_houses = [node for node in downstream_vertices if node in pg_copy.power_grid]
+        downstream_vertices = find_downstream_vertices(power_grid_copy.graph, feeder_id, False)
+        feeder_houses = [node for node in downstream_vertices if node in sym_load_ids]
         map_feeder_house[feeder_id] = feeder_houses
 
     # Assign EV profiles to houses
@@ -246,61 +242,47 @@ def ev_penetration_level(
             raise ValueError(f"Feeder {feeder_id} doesn't not have enough houses.")
 
         selected_houses = rndm.sample(feeder_houses, num_EV_per_LV)
-        selected_ev_profiles = rndm.sample(list(available_ev_profiles.columns), num_EV_per_LV)
+        selected_ev_profiles = rndm.sample(list(ev_profiles.columns), num_EV_per_LV)
 
         for house_id, ev_profile_id in zip(selected_houses, selected_ev_profiles):
-            ev_profile = available_ev_profiles[ev_profile_id]
-            ev_p_profile[house_id] += ev_profile
-            available_ev_profiles.drop(columns=[ev_profile_id], inplace=True)
+            ev_profile = ev_profiles[ev_profile_id]
+            power_grid_copy.p_profile[house_id] += ev_profile
+            ev_profiles.drop(columns=[ev_profile_id], inplace=True)
 
-    # Run powerflow with altered p_profile
-    pg_copy.p_profile = ev_p_profile
-    #print(pg_copy.p_profile)
-    pg_copy.run()
+    power_grid_copy.run()
 
-    return [pg_copy.voltage_summary, pg_copy.line_summary]
+    return [power_grid_copy.voltage_summary, power_grid_copy.line_summary]
 
 
 def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimization_criteria):
     pg_copy = copy.deepcopy(power_grid)
     options = get_args(optimization_criteria)
     assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
+    
+    min= power_grid.power_grid["transformer"][0]["tap_min"]
+    max= power_grid.power_grid["transformer"][0]["tap_max"]
+    tap_range = range(max, min+1)
+    
 
-    transformers = pg_copy.power_grid["transformer"]
-
-    # TODO: move this validation to the data input stage of the PowerGrid object
-    if len(transformers) != 1:
-        raise ValidationError("The LV grid must contain exactly one transformer.")
-
-    transformer_id = transformers[0]["id"]
-    original_tap = transformers[0].get("tap_pos", 0)
-
-    # TODO: extract this data from the transformer entry in the PowerGrid.power_grid data
-    tap_range = range(-5, 6)
-
+    # lower is better
     best_score = float("inf")
-    best_tap = original_tap
+    best_tap = -1
 
     for tap_pos in tap_range:
-
-        for transformer in pg_copy.power_grid["transformer"]:
-            transformer["tap_pos"] = tap_pos
-
-        try:
-            pg_copy.run()
-        except Exception:
-            continue  # Skip invalid tap positions
-
+        pg_copy.power_grid["transformer"][0]["tap_pos"] = tap_pos
+        pg_copy.run()
+        
         if optimization_criterium == "minimal_energy_loss":
             total_energy_loss = pg_copy.line_summary["energy_loss"].sum()
             score = total_energy_loss
 
         elif optimization_criterium == "minimal_deviation_u_pu":
-            voltage_dev = abs(pg_copy.voltage_summary["max_u_pu"] - 1.0) + abs(
-                pg_copy.voltage_summary["min_u_pu"] - 1.0
-            )
-            score = voltage_dev.mean()
+            voltage_dev = abs(pg_copy.voltage_summary["max_u_pu"] - 1.0) + abs(pg_copy.voltage_summary["min_u_pu"] - 1.0)
 
+            score = voltage_dev.mean()
+        
+        print(score)
+        
         if score < best_score:
             best_score = score
             best_tap = tap_pos
@@ -308,13 +290,48 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
     return best_tap
 
 
-def n_1_calculation(power_grid: PowerGrid):
-    # pg_copy = copy.deepcopy(power_grid)
-    # output = pd.DataFrame()
+def n_1_calculation(power_grid: PowerGrid, line_id: int):
+    output = pd.DataFrame(columns=["maximum_line_loading_id", "maximum_line_loading_timestamp", "maximum_line_loading"])
+    output.index.name = "alternative_line"
+    power_grid.run()
+    print(power_grid.batch_output["line"])
 
-    # # TODO create alternative power_grids, one for each different alternative line. Summarize the
-    # # results into the output table. Use
-    # # the graph_processor to find out which lines to use.
 
-    # return output
-    pass
+    # if not is_edge_enabled(power_grid.graph, line_id):
+    #     raise EdgeAlreadyDisabledError(f"Line {line_id} is already disabled.")
+    
+    alternative_lines = find_alternative_edges(power_grid.graph, line_id)
+
+    if len(alternative_lines) == 0:
+        return output
+
+    for alternative_line in alternative_lines:
+        power_grid_copy = copy.deepcopy(power_grid)
+
+        index = (power_grid_copy.power_grid["line"]["id"] == alternative_line)
+        power_grid_copy.power_grid["line"]["from_status"][index] = 1
+        power_grid_copy.power_grid["line"]["to_status"][index] = 1
+
+        index = (power_grid_copy.power_grid["line"]["id"] == line_id)
+        power_grid_copy.power_grid["line"]["from_status"][index] = 0
+        power_grid_copy.power_grid["line"]["to_status"][index] = 0
+
+        power_grid_copy.run()
+
+        summary = power_grid_copy.line_summary
+        print(summary)
+        index = summary["max_loading"].idxmax()
+        output.loc[alternative_line] = {
+            "maximum_line_loading_id": index,
+            "maximum_line_loading_timestamp": summary.loc[index, "max_loading_timestamp"],
+            "maximum_line_loading": summary.loc[index, "max_loading"]}
+        
+        del power_grid_copy
+
+
+
+    # TODO create alternative power_grids, one for each different alternative line. Summarize the
+    # results into the output table. Use
+    # the graph_processor to find out which lines to use.
+
+    return output
