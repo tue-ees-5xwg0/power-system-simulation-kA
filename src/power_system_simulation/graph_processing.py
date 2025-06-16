@@ -96,7 +96,7 @@ def filter_disabled_edges(graph, remove_sym_loads=False):
         enabled_edges = [
             (u, v, d) for u, v, d in graph.edges(data=True) if (d.get("from_status") != 0 and d.get("to_status") != 0)
         ]
-        enabled_nodes = [(n, d) for n, d in graph.nodes(data=True)]
+        enabled_nodes = list(graph.nodes(data=True))
 
     filtered.add_nodes_from(enabled_nodes)
     filtered.add_edges_from(enabled_edges)
@@ -144,6 +144,7 @@ def find_downstream_vertices(graph: nx.Graph, edge_id: int, exclude_sym_loads: b
     """
 
     edge_vertices = None
+    downstream_vertex = None
 
     if not is_edge_enabled(graph, edge_id):
         return []
@@ -160,7 +161,6 @@ def find_downstream_vertices(graph: nx.Graph, edge_id: int, exclude_sym_loads: b
 
     try:
         bfs_tree = nx.bfs_tree(filtered_graph, graph.graph["source_node_id"])
-
     except:
         raise IDNotFoundError("source_node_id is non-existent.")
 

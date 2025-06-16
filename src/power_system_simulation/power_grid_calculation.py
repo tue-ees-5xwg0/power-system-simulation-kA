@@ -17,7 +17,8 @@ from power_grid_model import (
     initialize_array,
 )
 
-from power_system_simulation.exceptions import EdgeAlreadyDisabledError, LoadProfileMismatchError, ValidationError
+
+from power_system_simulation.exceptions import LoadProfileMismatchError
 from power_system_simulation.graph_processing import create_graph, find_alternative_edges, find_downstream_vertices
 from power_system_simulation.input_data_validation import (
     is_edge_enabled,
@@ -45,19 +46,15 @@ class PowerGrid:
         p_profile_path: Optional[str] = None,
         q_profile_path: Optional[str] = None,
     ):
-
+        # load and validate power grid and meta-data
         self.power_grid = load_grid_json(power_grid_path)
         validate_power_grid_data(self.power_grid)
         self.meta_data = load_meta_data_json(power_grid_meta_data_path)
         validate_meta_data(self.power_grid, self.meta_data)
-        self.graph = create_graph(self.power_grid)
 
-        self.p_profile = None
-        self.q_profile = None
-
+        # load and validate power profiles. Only validates if both power profiles are initiated together.
         if p_profile_path is not None:
             self.p_profile = pd.read_parquet(p_profile_path)
-
         if q_profile_path is not None:
             self.q_profile = pd.read_parquet(q_profile_path)
 
@@ -65,27 +62,19 @@ class PowerGrid:
             self._validate_power_profiles_load_ids()
             validate_power_profiles_timestamps(self.p_profile, self.q_profile)
 
+        # create and validate graph (validation happens in the graph)
+        self.update_graph()
+
+        # initialize power-grid-model output
         self.batch_output = None
         self.voltage_summary = None
         self.line_summary = None
-
-    def load_p_profile_parquet(self, path):
-        """
-        Loads the p_profile into the PowerGrid object.
-        """
-        self.p_profile = pd.read_parquet(path)
-
-    def load_q_profile_parquet(self, path):
-        """
-        Loads the q_profile into the PowerGrid object.
-        """
-        self.q_profile = pd.read_parquet(path)
 
     def update_graph(self):
         """
         Used to update the internal graph after changing the power_grid data.
         """
-        create_graph(self.power_grid)
+        self.graph = create_graph(self.power_grid)
 
     def run(self):
         """
@@ -112,14 +101,18 @@ class PowerGrid:
             max_iterations=20,
             calculation_method=CalculationMethod.newton_raphson,
         )
-        # TODO delete model
+
+        del model
+
         self.voltage_summary = self._get_voltage_summary()
         self.line_summary = self._get_line_summary()
 
     def _validate_power_profiles_load_ids(self):
+        # check for matching load ids between profiles
         if not self.p_profile.columns.equals(self.q_profile.columns):
             raise LoadProfileMismatchError("Load IDs do not match between power profiles.")
 
+        # check for presense of load ids in the power_grid
         for profile_id in self.p_profile.columns:
             found = False
             for load in self.power_grid["sym_load"]:
@@ -153,6 +146,7 @@ class PowerGrid:
             temp_min_value.append(timestamp[i_min]["u_pu"])
             temp_min_node.append(timestamp[i_min]["id"])
 
+        # summarize output into dataframe
         output["max_u_pu_node"] = temp_max_node
         output["max_u_pu"] = temp_max_value
         output["min_u_pu_node"] = temp_min_node
@@ -199,6 +193,7 @@ class PowerGrid:
             temp_min_value.append(line[i_min]["loading"])
             temp_min_timestamp.append(self.p_profile.index[i_min])
 
+        # summarize output into dataframe
         output["max_loading_timestamp"] = temp_max_timestamp
         output["max_loading"] = temp_max_value
         output["min_loading_timestamp"] = temp_min_timestamp
@@ -214,6 +209,8 @@ def ev_penetration_level(
     This function randomly adds EV charging pofiles to a a percentage of household (sym_loads) based on
     a penetration level. Then it runs a time-series powerflow and returns the voltage and line summaries.
     """
+    power_grid.run()
+
     power_grid_copy = copy.deepcopy(power_grid)
     rndm = random.Random(seed)
 
@@ -249,8 +246,8 @@ def ev_penetration_level(
             power_grid_copy.p_profile[house_id] += ev_profile
             ev_profiles.drop(columns=[ev_profile_id], inplace=True)
 
+    # run model with ev_profile added to the load and return output
     power_grid_copy.run()
-
     return [power_grid_copy.voltage_summary, power_grid_copy.line_summary]
 
 
@@ -265,6 +262,7 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
     assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
 
 
+
     min_tp = power_grid.power_grid["transformer"][0]["tap_min"]
     max_tp = power_grid.power_grid["transformer"][0]["tap_max"]
     tap_range = range(max_tp, min_tp + 1)
@@ -277,6 +275,7 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
     for tap_pos in tap_range:
         pg_copy.power_grid["transformer"][0]["tap_pos"] = tap_pos
         pg_copy.run()
+
 
         score = float("inf")
 
@@ -301,22 +300,25 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
 
 
 def n_1_calculation(power_grid: PowerGrid, line_id: int):
+    """
+    This function returns an overview of possible alternative lines when a provided line is disabled. This overview
+    includes the maximum line loading and timestampt per alternative line.
+    """
+
+    # initialize output
     output = pd.DataFrame(columns=["maximum_line_loading_id", "maximum_line_loading_timestamp", "maximum_line_loading"])
     output.index.name = "alternative_line"
-    power_grid.run()
-    print(power_grid.batch_output["line"])
 
-    # if not is_edge_enabled(power_grid.graph, line_id):
-    #     raise EdgeAlreadyDisabledError(f"Line {line_id} is already disabled.")
-
+    # check for alternative lines
+    power_grid.update_graph()
     alternative_lines = find_alternative_edges(power_grid.graph, line_id)
 
-    if len(alternative_lines) == 0:
-        return output
-
+    # run model for each alternative line
     for alternative_line in alternative_lines:
         power_grid_copy = copy.deepcopy(power_grid)
 
+
+        # turn provided line off and turn alternative on
         index = power_grid_copy.power_grid["line"]["id"] == alternative_line
         power_grid_copy.power_grid["line"]["from_status"][index] = 1
         power_grid_copy.power_grid["line"]["to_status"][index] = 1
@@ -325,10 +327,11 @@ def n_1_calculation(power_grid: PowerGrid, line_id: int):
         power_grid_copy.power_grid["line"]["from_status"][index] = 0
         power_grid_copy.power_grid["line"]["to_status"][index] = 0
 
+        # run model
         power_grid_copy.run()
 
+        # summarize outputs into dataframe
         summary = power_grid_copy.line_summary
-        print(summary)
         index = summary["max_loading"].idxmax()
         output.loc[alternative_line] = {
             "maximum_line_loading_id": index,
@@ -337,9 +340,5 @@ def n_1_calculation(power_grid: PowerGrid, line_id: int):
         }
 
         del power_grid_copy
-
-    # TODO create alternative power_grids, one for each different alternative line. Summarize the
-    # results into the output table. Use
-    # the graph_processor to find out which lines to use.
 
     return output

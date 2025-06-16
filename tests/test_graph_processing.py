@@ -196,11 +196,11 @@ def test_is_edge_enabled():
         power_grid = json_deserialize(file.read())
     test = create_graph(power_grid)
 
-    # Test if edges are enabled or disabled
+    # test if edges are enabled or disabled
     assert is_edge_enabled(test, 9) == True
     assert is_edge_enabled(test, 21) == False
 
-    # Test if error is raised if chosen edge is not a valid ID
+    # test if error is raised if chosen edge is not a valid ID
     with pytest.raises(IDNotFoundError) as output:
         is_edge_enabled(test, 99)
     assert output.value.args[0] == "The provided edge 99 is not in the ID list."
@@ -227,15 +227,21 @@ def test_find_downstream_vertices_normal_case():
         power_grid = json_deserialize(file.read())
     test = create_graph(power_grid)
 
+    # exclude sym_load nodes
     assert find_downstream_vertices(test, 9) == [2, 3, 4, 5, 6, 7, 8]
     assert find_downstream_vertices(test, 14) == [7, 8]
     assert find_downstream_vertices(test, 21) == []
     assert find_downstream_vertices(test, 11) == [4, 5, 6, 7, 8]
 
+    # include sym_load nodes
+    assert find_downstream_vertices(test, 11, False) == [4, 5, 6, 7, 8, 17, 18, 19]
+
+    # test from different source_node
     test.graph["source_node_id"] = 4
     assert find_downstream_vertices(test, 11) == [1, 2, 3]
     assert find_downstream_vertices(test, 12) == [5]
 
+    # test invalid source node
     test.graph["source_node_id"] = 99
     with pytest.raises(IDNotFoundError) as output:
         find_downstream_vertices(test, 9)
