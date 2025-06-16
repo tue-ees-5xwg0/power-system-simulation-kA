@@ -80,26 +80,35 @@ def validate_power_grid_data(power_grid):
     lines = power_grid["line"]
     source = power_grid["source"]
     sym_loads = power_grid["sym_load"]
-    transformer = power_grid["transformer"]
 
-    if len(transformer) != 1:
-        raise ValidationError(
-            "Transformer list contains more that 1 transformer. Only 1 transformer is supported for this object."
-        )
     if len(source) != 1:
         raise ValidationError("Source list contains more that 1 source. Only 1 source is supported for this object.")
-    if not has_valid_edges(lines, transformer):
-        raise IDNotUniqueError("An edge is connected to the same node on both sides.")
-    if has_duplicate_ids(nodes, lines, source, sym_loads, transformer):
+    if not has_valid_edges(lines):
+        raise IDNotUniqueError("A line is connected to the same node on both sides.")
+    if has_duplicate_ids(nodes, lines, source, sym_loads):
         raise IDNotUniqueError("There are components with duplicate IDs.")
     if not has_node_ids(nodes, lines):
         raise IDNotFoundError("Line(s) contain(s) non-existent node ID.")
     if not has_node_ids(nodes, sym_loads):
         raise IDNotFoundError("Sym_load(s) contain(s) non-existent node ID.")
-    if not has_node_ids(nodes, transformer):
-        raise IDNotFoundError("Transformer contains non-existent node ID.")
     if not has_node_ids(nodes, source):
         raise IDNotFoundError("The provided source_node_id is not in the node list.")
+
+    try:
+        transformer = power_grid["transformer"]
+    except:
+        return
+
+    if has_duplicate_ids(nodes, lines, source, sym_loads, transformer):
+        raise IDNotUniqueError("There are components with duplicate IDs.")
+    if len(transformer) != 1:
+        raise ValidationError(
+            "Transformer list contains more that 1 transformer. Only 1 transformer is supported for this object."
+        )
+    if not has_node_ids(nodes, transformer):
+        raise IDNotFoundError("Transformer contains non-existent node ID.")
+    if not has_valid_edges(transformer):
+        raise IDNotUniqueError("The transformer is connected to the same node on both sides.")
 
 
 def validate_meta_data(power_grid, meta_data):
