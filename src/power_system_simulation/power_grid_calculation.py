@@ -255,13 +255,20 @@ def ev_penetration_level(
 
 
 def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimization_criteria):
+    """
+    returns optimal tap position of the transfomer by repeating time-series power flow calculation
+    it does this for: The minimal total energy loss of all the lines and the whole time period.
+    and The minimal (averaged across all nodes) deviation of (max and min) p.u. node voltages with respect to 1 p.u.
+    """
     pg_copy = copy.deepcopy(power_grid)
     options = get_args(optimization_criteria)
     assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
 
-    min = power_grid.power_grid["transformer"][0]["tap_min"]
-    max = power_grid.power_grid["transformer"][0]["tap_max"]
-    tap_range = range(max, min + 1)
+
+    min_tp = power_grid.power_grid["transformer"][0]["tap_min"]
+    max_tp = power_grid.power_grid["transformer"][0]["tap_max"]
+    tap_range = range(max_tp, min_tp + 1)
+
 
     # lower is better
     best_score = float("inf")
@@ -270,6 +277,8 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
     for tap_pos in tap_range:
         pg_copy.power_grid["transformer"][0]["tap_pos"] = tap_pos
         pg_copy.run()
+
+        score = float("inf")
 
         if optimization_criterium == "minimal_energy_loss":
             total_energy_loss = pg_copy.line_summary["energy_loss"].sum()
