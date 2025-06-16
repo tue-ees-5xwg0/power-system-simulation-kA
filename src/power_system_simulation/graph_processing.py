@@ -13,6 +13,7 @@ from power_system_simulation.exceptions import (
     GraphCycleError,
     GraphNotFullyConnectedError,
     IDNotFoundError,
+    ValidationError,
 )
 from power_system_simulation.input_data_validation import is_edge_enabled
 

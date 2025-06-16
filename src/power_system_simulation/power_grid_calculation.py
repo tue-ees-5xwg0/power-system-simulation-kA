@@ -17,9 +17,11 @@ from power_grid_model import (
     initialize_array,
 )
 
+
 from power_system_simulation.exceptions import LoadProfileMismatchError
 from power_system_simulation.graph_processing import create_graph, find_alternative_edges, find_downstream_vertices
 from power_system_simulation.input_data_validation import (
+    is_edge_enabled,
     load_grid_json,
     load_meta_data_json,
     validate_ev_charging_profile,
@@ -234,7 +236,7 @@ def ev_penetration_level(
     # Assign EV profiles to houses
     for feeder_id, feeder_houses in map_feeder_house.items():
         if num_EV_per_LV > len(feeder_houses):
-            raise ValueError(f"Feeder {feeder_id} doesn not have enough houses.")
+            raise ValueError(f"Feeder {feeder_id} doesn't not have enough houses.")
 
         selected_houses = rndm.sample(feeder_houses, num_EV_per_LV)
         selected_ev_profiles = rndm.sample(list(ev_profiles.columns), num_EV_per_LV)
@@ -250,13 +252,21 @@ def ev_penetration_level(
 
 
 def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimization_criteria):
+    """
+    returns optimal tap position of the transfomer by repeating time-series power flow calculation
+    it does this for: The minimal total energy loss of all the lines and the whole time period.
+    and The minimal (averaged across all nodes) deviation of (max and min) p.u. node voltages with respect to 1 p.u.
+    """
     pg_copy = copy.deepcopy(power_grid)
     options = get_args(optimization_criteria)
     assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
 
-    min = power_grid.power_grid["transformer"][0]["tap_min"]
-    max = power_grid.power_grid["transformer"][0]["tap_max"]
-    tap_range = range(max, min + 1)
+
+
+    min_tp = power_grid.power_grid["transformer"][0]["tap_min"]
+    max_tp = power_grid.power_grid["transformer"][0]["tap_max"]
+    tap_range = range(max_tp, min_tp + 1)
+
 
     # lower is better
     best_score = float("inf")
@@ -265,6 +275,9 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
     for tap_pos in tap_range:
         pg_copy.power_grid["transformer"][0]["tap_pos"] = tap_pos
         pg_copy.run()
+
+
+        score = float("inf")
 
         if optimization_criterium == "minimal_energy_loss":
             total_energy_loss = pg_copy.line_summary["energy_loss"].sum()
@@ -303,6 +316,7 @@ def n_1_calculation(power_grid: PowerGrid, line_id: int):
     # run model for each alternative line
     for alternative_line in alternative_lines:
         power_grid_copy = copy.deepcopy(power_grid)
+
 
         # turn provided line off and turn alternative on
         index = power_grid_copy.power_grid["line"]["id"] == alternative_line

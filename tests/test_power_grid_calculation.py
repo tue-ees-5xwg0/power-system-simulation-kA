@@ -22,6 +22,7 @@ q_profile_small_path = "tests/test_data/small_power_grid/reactive_power_profile.
 ev_p_profile_small_path = "tests/test_data/small_power_grid/ev_active_power_profile.parquet"
 line_summary_small_path = "tests/test_data/small_power_grid/test_line_summary.csv"
 voltage_summary_small_path = "tests/test_data/small_power_grid/test_voltage_summary.csv"
+ev_line_summary_small_path = "tests/test_data/small_power_grid/test_ev_line_summary.csv"
 
 
 def test_power_grid_init_normal():
@@ -137,14 +138,27 @@ def test_power_grid_get_line_summary():
 
 
 def test_feature_ev_penetration_level():
+    test_grid = PowerGrid(
+        pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
+    )
 
-    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_small_path, q_profile_small_path)
+    test_grid.run()
 
+    [test_voltage_summary, test_line_summary] = ev_penetration_level(test_grid, ev_p_profile_small_path, 0.5, 28)
 
-def test_optimum_tap_position():
+    assert test_voltage_summary is not None
+    assert test_line_summary is not None
 
-    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_small_path, q_profile_small_path)
+    # Tests if EV line summary is equal to previously created EV line summary with seed 28
+    test_results = compare_pandas_dataframes_fp(
+        test_line_summary,
+        pd.read_csv(ev_line_summary_small_path, index_col=0),
+        ["max_loading_timestamp", "max_loading", "min_loading_timestamp", "min_loading"],
+    )
 
+    # Tests if added EV's have changed the line summary by comparing to original line summary
+    assert not test_line_summary["energy_loss"].equals(test_grid.line_summary["energy_loss"])
+    
 
 def test_n_1_calculation():
 
@@ -166,3 +180,47 @@ def test_n_1_calculation():
         output,
         ["maximum_line_loading_id", "maximum_line_loading_timestamp", "maximum_line_loading"],
     )
+    
+
+def test_optimum_tap_position():
+    test_grid = PowerGrid(
+        pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
+    )
+    test_grid.run()
+
+    # Extract tap range
+    tap_min = test_grid.power_grid["transformer"][0]["tap_min"]
+    tap_max = test_grid.power_grid["transformer"][0]["tap_max"]
+    tap_range = range(tap_max, tap_min + 1)
+
+    # Run optimization for minimal_energy_loss
+    best_tap_eloss = optimum_tap_position(test_grid, "minimal_energy_loss")
+    assert best_tap_eloss in tap_range, "Best tap position is out of valid range"
+
+    # Manually check energy losses for neighboring tap positions
+    losses = {}
+    for tap in tap_range:
+        test_grid.power_grid["transformer"][0]["tap_pos"] = tap
+        test_grid.run()
+        losses[tap] = test_grid.line_summary["energy_loss"].sum()
+
+    min_loss_tap = min(losses, key=losses.get)
+    assert best_tap_eloss == min_loss_tap, f"Expected tap with minimum loss to be {min_loss_tap}, got {best_tap_eloss}"
+
+    # Run optimization for minimal_deviation_u_pu
+    best_tap_voltage = optimum_tap_position(test_grid, "minimal_deviation_u_pu")
+    assert best_tap_voltage in tap_range, "Best voltage tap position is out of valid range"
+
+    # Optionally log deviations for human-readable output (or deeper analysis)
+    deviations = {}
+    for tap in tap_range:
+        test_grid.power_grid["transformer"][0]["tap_pos"] = tap
+        test_grid.run()
+        voltage_dev = abs(test_grid.voltage_summary["max_u_pu"] - 1.0) + abs(test_grid.voltage_summary["min_u_pu"] - 1.0)
+        deviations[tap] = voltage_dev.mean()
+
+    min_dev_tap = min(deviations, key=deviations.get)
+    assert best_tap_voltage == min_dev_tap, f"Expected tap with minimum voltage deviation to be {min_dev_tap}, got {best_tap_voltage}"
+
+
+
