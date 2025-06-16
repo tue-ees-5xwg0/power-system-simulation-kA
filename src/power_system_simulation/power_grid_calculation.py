@@ -79,12 +79,15 @@ class PowerGrid:
         After initializing the class and setting up the model properties, this function can be run to process the
         model and save the output to batch_output, voltage_summary and line_summary.
         """
+        # validate power profiles
         self._validate_power_profiles_load_ids()
         validate_power_profiles_timestamps(self.p_profile, self.q_profile)
 
+        # construct model
         model = PowerGridModel(self.power_grid)
         num_time_stamps, num_sym_loads = self.p_profile.shape
 
+        # create update dataset
         update_sym_load = initialize_array(DatasetType.update, ComponentType.sym_load, (num_time_stamps, num_sym_loads))
         update_sym_load["id"] = [self.p_profile.columns.tolist()]
         update_sym_load["p_specified"] = self.p_profile
@@ -92,6 +95,7 @@ class PowerGrid:
 
         time_series_mutation = {ComponentType.sym_load: update_sym_load}
 
+        # batch calucation power flow
         self.batch_output = model.calculate_power_flow(
             update_data=time_series_mutation,
             symmetric=True,
@@ -100,12 +104,19 @@ class PowerGrid:
             calculation_method=CalculationMethod.newton_raphson,
         )
 
+        # clear model from memory
         del model
 
+        # generate the voltage and line summaries
         self.voltage_summary = self._get_voltage_summary()
         self.line_summary = self._get_line_summary()
 
     def _validate_power_profiles_load_ids(self):
+        """
+        This function alidates that:
+        - p and q profiles have matching load IDs.
+        - All load IDs exist in the sym_loads defined in the grid.
+        """
         # check for matching load ids between profiles
         if not self.p_profile.columns.equals(self.q_profile.columns):
             raise LoadProfileMismatchError("Load IDs do not match between power profiles.")
@@ -124,8 +135,10 @@ class PowerGrid:
         This function summarizes the maximum an minimum per-unit voltages per timestamp and saves that
         value and the corresponding node to a pandas dataframe row.
         """
-
+        # get node-level output from batch simulation results
         nodes = self.batch_output["node"]
+
+        # initialize dataframe for voltage summary
         output = pd.DataFrame(index=self.p_profile.index)
         output.index.name = "timestamp"
 
@@ -135,6 +148,7 @@ class PowerGrid:
         temp_min_node = []
         temp_min_value = []
 
+        # loop over each timestamp to get node voltage values
         for timestamp in nodes:
             i_max = timestamp["u_pu"].argmax()
             temp_max_value.append(timestamp[i_max]["u_pu"])
@@ -158,8 +172,10 @@ class PowerGrid:
         the corresponding timestamp to a pandas dataframe row. It also integrates the total power loss per
         line over the timeframe of the power-grid-model.
         """
-
+        # get line-level output from batch simulation results
         lines = self.batch_output["line"]
+
+        # initialize dataframe for line summary
         output = pd.DataFrame(index=lines[0]["id"])
         output.index.name = "line"
 
@@ -168,12 +184,11 @@ class PowerGrid:
         s_to = lines["s_to"]
         p_loss = np.abs(s_from - s_to)
 
-        hours_since_start = (
-            self.p_profile.index - self.p_profile.index[0]
-        ).total_seconds() / 3600  # get the timestamps in terms of hours (float) for integration of power over time
-        output["energy_loss"] = (
-            np.trapezoid(p_loss, x=hours_since_start, axis=0) / 1000
-        )  # calculate the energy loss over time using trapezoidal integratian in kWh
+        # get the timestamps in terms of hours (float) for integration of power over time
+        hours_since_start = (self.p_profile.index - self.p_profile.index[0]).total_seconds() / 3600
+
+        # calculate the energy loss over time using trapezoidal integratian in kWh
+        output["energy_loss"] = np.trapezoid(p_loss, x=hours_since_start, axis=0) / 1000
 
         # determine maximum and minimum loading per line
         lines_swapped = lines.swapaxes(0, 1)
@@ -182,6 +197,7 @@ class PowerGrid:
         temp_min_timestamp = []
         temp_min_value = []
 
+        # loop over each line to determine max/min loading
         for line in lines_swapped:
             i_max = line["loading"].argmax()
             temp_max_value.append(line[i_max]["loading"])
@@ -207,38 +223,44 @@ def ev_penetration_level(
     This function randomly adds EV charging pofiles to a a percentage of household (sym_loads) based on
     a penetration level. Then it runs a time-series powerflow and returns the voltage and line summaries.
     """
+    # run model
     power_grid.run()
 
+    # create a deep copy of the grid to avoid mutating original
     power_grid_copy = copy.deepcopy(power_grid)
+
+    # establish randomness with (optional) seed
     rndm = random.Random(seed)
 
-    # Load and validate EV profile
+    # load and validate EV profile
     ev_profiles = pd.read_parquet(ev_charging_profile_path)
     validate_ev_charging_profile(power_grid_copy, ev_profiles)
     validate_power_profiles_timestamps(power_grid_copy.p_profile, ev_profiles)
 
-    # Get grid data
+    # get grid data
     sym_load_ids = power_grid_copy.p_profile.columns.tolist()
     num_houses = len(sym_load_ids)
     lv_feeder_ids = power_grid_copy.meta_data["lv_feeders"]
     num_feeders = len(lv_feeder_ids)
     num_EV_per_LV = math.floor(penetration_level * num_houses / num_feeders)
 
-    # Map feeders to downstream houses
+    # map feeders to downstream houses
     map_feeder_house = {}
     for feeder_id in lv_feeder_ids:
         downstream_vertices = find_downstream_vertices(power_grid_copy.graph, feeder_id, False)
         feeder_houses = [node for node in downstream_vertices if node in sym_load_ids]
         map_feeder_house[feeder_id] = feeder_houses
 
-    # Assign EV profiles to houses
+    # assign EV profiles to houses
     for feeder_id, feeder_houses in map_feeder_house.items():
         if num_EV_per_LV > len(feeder_houses):
             raise ValueError(f"Feeder {feeder_id} doesn't not have enough houses.")
 
+        # randomly select set of houses and EV profiles
         selected_houses = rndm.sample(feeder_houses, num_EV_per_LV)
         selected_ev_profiles = rndm.sample(list(ev_profiles.columns), num_EV_per_LV)
 
+        # add EV profile to existing p_profile of houses
         for house_id, ev_profile_id in zip(selected_houses, selected_ev_profiles):
             ev_profile = ev_profiles[ev_profile_id]
             power_grid_copy.p_profile[house_id] += ev_profile
@@ -255,37 +277,46 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
     it does this for: The minimal total energy loss of all the lines and the whole time period.
     and The minimal (averaged across all nodes) deviation of (max and min) p.u. node voltages with respect to 1 p.u.
     """
+    # create a deep copy of the grid to avoid mutating original
     pg_copy = copy.deepcopy(power_grid)
+
+    # validate optimization criteria
     options = get_args(optimization_criteria)
     assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
 
+    # retreive transformer tap range
     min_tp = power_grid.power_grid["transformer"][0]["tap_min"]
     max_tp = power_grid.power_grid["transformer"][0]["tap_max"]
     tap_range = range(max_tp, min_tp + 1)
 
-    # lower is better
+    # initialize tracking of the best score and tap
     best_score = float("inf")
     best_tap = -1
 
+    # loop through all tap positions
     for tap_pos in tap_range:
+        # set transformer tap position
         pg_copy.power_grid["transformer"][0]["tap_pos"] = tap_pos
+
+        # run model
         pg_copy.run()
 
+        # default score is bad
         score = float("inf")
 
+        # optimization: minimize the total energy loss
         if optimization_criterium == "minimal_energy_loss":
             total_energy_loss = pg_copy.line_summary["energy_loss"].sum()
             score = total_energy_loss
 
+        # optimization: minimize the deviation for the rated voltage
         elif optimization_criterium == "minimal_deviation_u_pu":
             voltage_dev = abs(pg_copy.voltage_summary["max_u_pu"] - 1.0) + abs(
                 pg_copy.voltage_summary["min_u_pu"] - 1.0
             )
+            score = voltage_dev.mean()  # average deviation across timestamps
 
-            score = voltage_dev.mean()
-
-        print(score)
-
+        # update best tap position of current one is better
         if score < best_score:
             best_score = score
             best_tap = tap_pos
@@ -298,7 +329,6 @@ def n_1_calculation(power_grid: PowerGrid, line_id: int):
     This function returns an overview of possible alternative lines when a provided line is disabled. This overview
     includes the maximum line loading and timestampt per alternative line.
     """
-
     # initialize output
     output = pd.DataFrame(columns=["maximum_line_loading_id", "maximum_line_loading_timestamp", "maximum_line_loading"])
     output.index.name = "alternative_line"
