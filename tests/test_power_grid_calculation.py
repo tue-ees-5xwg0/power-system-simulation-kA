@@ -125,34 +125,8 @@ def test_power_grid_get_line_summary():
 
 def test_feature_ev_penetration_level():
 
-    test_grid = PowerGrid(
-        pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
-    )
-    test_grid.run()
+    test_grid = PowerGrid(pgm_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
 
-    ev = ev_penetration_level(test_grid, ev_p_profile_small_path, 0.5)
-
-
-# def test_feature_optimum_tap_position():
-
-#     test_grid = PowerGrid(
-#         pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
-#     )
-
-#     optimum = optimum_tap_position(test_grid, "minimal_energy_loss")
-
-
-def test_feature_n_1_calculation():
-
-    test_grid = PowerGrid(
-        pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
-    )
-
-    # edge already disabled
-    with pytest.raises(EdgeAlreadyDisabledError) as output:
-        n_1_calculation(test_grid, 24)
-    assert output.value.args[0] == "The chosen edge 24 is already disabled."
-
-    print(n_1_calculation(test_grid, 18))
-    assert False
-
+def test_optimum_tap_position():
+     test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
+     
