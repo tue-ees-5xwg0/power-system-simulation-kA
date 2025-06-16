@@ -64,7 +64,6 @@ class PowerGrid:
         self.update_graph()
 
         # initialize power-grid-model output
-        self.batch_output = None
         self.voltage_summary = None
         self.line_summary = None
 
@@ -92,7 +91,7 @@ class PowerGrid:
 
         time_series_mutation = {ComponentType.sym_load: update_sym_load}
 
-        self.batch_output = model.calculate_power_flow(
+        batch_output = model.calculate_power_flow(
             update_data=time_series_mutation,
             symmetric=True,
             error_tolerance=1e-8,
@@ -101,9 +100,9 @@ class PowerGrid:
         )
 
         del model
-
-        self.voltage_summary = self._get_voltage_summary()
-        self.line_summary = self._get_line_summary()
+        self.voltage_summary = self._get_voltage_summary(batch_output)
+        self.line_summary = self._get_line_summary(batch_output)
+        del batch_output
 
     def _validate_power_profiles_load_ids(self):
         # check for matching load ids between profiles
@@ -119,13 +118,13 @@ class PowerGrid:
             if not found:
                 raise LoadProfileMismatchError(f"Load ID {profile_id} of in power_profiles not found in sym_loads.")
 
-    def _get_voltage_summary(self):
+    def _get_voltage_summary(self, batch_output):
         """
         This function summarizes the maximum an minimum per-unit voltages per timestamp and saves that
         value and the corresponding node to a pandas dataframe row.
         """
 
-        nodes = self.batch_output["node"]
+        nodes = batch_output["node"]
         output = pd.DataFrame(index=self.p_profile.index)
         output.index.name = "timestamp"
 
@@ -152,14 +151,14 @@ class PowerGrid:
 
         return output
 
-    def _get_line_summary(self):
+    def _get_line_summary(self, batch_output):
         """
         This function summarizes the maximum an minimum per-unit loadings per line and saves that value and
         the corresponding timestamp to a pandas dataframe row. It also integrates the total power loss per
         line over the timeframe of the power-grid-model.
         """
 
-        lines = self.batch_output["line"]
+        lines = batch_output["line"]
         output = pd.DataFrame(index=lines[0]["id"])
         output.index.name = "line"
 
@@ -207,7 +206,7 @@ def ev_penetration_level(
     This function randomly adds EV charging pofiles to a a percentage of household (sym_loads) based on
     a penetration level. Then it runs a time-series powerflow and returns the voltage and line summaries.
     """
-    power_grid.run()
+    # power_grid.run()
 
     power_grid_copy = copy.deepcopy(power_grid)
     rndm = random.Random(seed)
@@ -255,7 +254,7 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
     it does this for: The minimal total energy loss of all the lines and the whole time period.
     and The minimal (averaged across all nodes) deviation of (max and min) p.u. node voltages with respect to 1 p.u.
     """
-    pg_copy = copy.deepcopy(power_grid)
+    # pg_copy = copy.deepcopy(power_grid)
     options = get_args(optimization_criteria)
     assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
 
@@ -268,6 +267,7 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
     best_tap = -1
 
     for tap_pos in tap_range:
+        pg_copy = copy.deepcopy(power_grid)
         pg_copy.power_grid["transformer"][0]["tap_pos"] = tap_pos
         pg_copy.run()
 
@@ -289,6 +289,7 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
         if score < best_score:
             best_score = score
             best_tap = tap_pos
+        del pg_copy
 
     return best_tap
 
@@ -306,6 +307,7 @@ def n_1_calculation(power_grid: PowerGrid, line_id: int):
     # check for alternative lines
     power_grid.update_graph()
     alternative_lines = find_alternative_edges(power_grid.graph, line_id)
+    print(alternative_lines)
 
     # run model for each alternative line
     for alternative_line in alternative_lines:
