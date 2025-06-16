@@ -162,10 +162,12 @@ def test_optimum_tap_position():
     for tap in tap_range:
         test_grid.power_grid["transformer"][0]["tap_pos"] = tap
         test_grid.run()
-        voltage_dev = abs(test_grid.voltage_summary["max_u_pu"] - 1.0) + abs(test_grid.voltage_summary["min_u_pu"] - 1.0)
+        voltage_dev = abs(test_grid.voltage_summary["max_u_pu"] - 1.0) + abs(
+            test_grid.voltage_summary["min_u_pu"] - 1.0
+        )
         deviations[tap] = voltage_dev.mean()
 
     min_dev_tap = min(deviations, key=deviations.get)
-    assert best_tap_voltage == min_dev_tap, f"Expected tap with minimum voltage deviation to be {min_dev_tap}, got {best_tap_voltage}"
-
-
+    assert (
+        best_tap_voltage == min_dev_tap
+    ), f"Expected tap with minimum voltage deviation to be {min_dev_tap}, got {best_tap_voltage}"
