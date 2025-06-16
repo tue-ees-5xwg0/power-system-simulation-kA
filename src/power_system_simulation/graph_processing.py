@@ -13,7 +13,7 @@ from power_system_simulation.exceptions import (
     GraphCycleError,
     GraphNotFullyConnectedError,
     IDNotFoundError,
-    ValidationError
+    ValidationError,
 )
 from power_system_simulation.input_data_validation import is_edge_enabled
 
@@ -203,4 +203,3 @@ def find_alternative_edges(graph: nx.Graph, disabled_edge_id: int) -> List[int]:
             valid_alternatives.append(candidate_edge_id)
 
     return valid_alternatives
-
