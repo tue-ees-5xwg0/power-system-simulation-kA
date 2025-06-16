@@ -17,11 +17,9 @@ from power_grid_model import (
     initialize_array,
 )
 
-
 from power_system_simulation.exceptions import LoadProfileMismatchError
 from power_system_simulation.graph_processing import create_graph, find_alternative_edges, find_downstream_vertices
 from power_system_simulation.input_data_validation import (
-    is_edge_enabled,
     load_grid_json,
     load_meta_data_json,
     validate_ev_charging_profile,
@@ -261,12 +259,9 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
     options = get_args(optimization_criteria)
     assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
 
-
-
     min_tp = power_grid.power_grid["transformer"][0]["tap_min"]
     max_tp = power_grid.power_grid["transformer"][0]["tap_max"]
     tap_range = range(max_tp, min_tp + 1)
-
 
     # lower is better
     best_score = float("inf")
@@ -275,7 +270,6 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
     for tap_pos in tap_range:
         pg_copy.power_grid["transformer"][0]["tap_pos"] = tap_pos
         pg_copy.run()
-
 
         score = float("inf")
 
@@ -316,7 +310,6 @@ def n_1_calculation(power_grid: PowerGrid, line_id: int):
     # run model for each alternative line
     for alternative_line in alternative_lines:
         power_grid_copy = copy.deepcopy(power_grid)
-
 
         # turn provided line off and turn alternative on
         index = power_grid_copy.power_grid["line"]["id"] == alternative_line

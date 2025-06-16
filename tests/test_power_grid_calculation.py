@@ -158,7 +158,7 @@ def test_feature_ev_penetration_level():
 
     # Tests if added EV's have changed the line summary by comparing to original line summary
     assert not test_line_summary["energy_loss"].equals(test_grid.line_summary["energy_loss"])
-    
+
 
 def test_n_1_calculation():
 
@@ -180,7 +180,7 @@ def test_n_1_calculation():
         output,
         ["maximum_line_loading_id", "maximum_line_loading_timestamp", "maximum_line_loading"],
     )
-    
+
 
 def test_optimum_tap_position():
     test_grid = PowerGrid(
@@ -216,11 +216,12 @@ def test_optimum_tap_position():
     for tap in tap_range:
         test_grid.power_grid["transformer"][0]["tap_pos"] = tap
         test_grid.run()
-        voltage_dev = abs(test_grid.voltage_summary["max_u_pu"] - 1.0) + abs(test_grid.voltage_summary["min_u_pu"] - 1.0)
+        voltage_dev = abs(test_grid.voltage_summary["max_u_pu"] - 1.0) + abs(
+            test_grid.voltage_summary["min_u_pu"] - 1.0
+        )
         deviations[tap] = voltage_dev.mean()
 
     min_dev_tap = min(deviations, key=deviations.get)
-    assert best_tap_voltage == min_dev_tap, f"Expected tap with minimum voltage deviation to be {min_dev_tap}, got {best_tap_voltage}"
-
-
-
+    assert (
+        best_tap_voltage == min_dev_tap
+    ), f"Expected tap with minimum voltage deviation to be {min_dev_tap}, got {best_tap_voltage}"
