@@ -199,3 +199,21 @@ def find_alternative_edges(graph: nx.Graph, disabled_edge_id: int) -> List[int]:
             valid_alternatives.append(candidate_edge_id)
 
     return valid_alternatives
+
+
+def find_lv_feeder_ids(graph: nx.Graph):
+    """
+    Finds the LV feeder line IDs from the power grid graph by identifying all lines
+    that originate from the transformer's low-voltage (to_node) side.
+    """
+    transformers = graph.get("transformer", [])
+    if len(transformers) != 1:
+        raise ValueError("Expected exactly one transformer in the grid.")
+
+    transformer_to_node = transformers[0]["to_node"]
+    lv_feeder_ids = [line["id"] for line in graph.get("line", []) if line["from_node"] == transformer_to_node]
+
+    if not lv_feeder_ids:
+        raise ValueError("No LV feeder lines found from transformer to_node.")
+
+    return lv_feeder_ids

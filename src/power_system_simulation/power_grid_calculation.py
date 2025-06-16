@@ -3,6 +3,8 @@ This module contains the power grid class and the processing around it.
 """
 
 import copy
+import math
+import random
 from typing import Literal, Optional, get_args
 
 import numpy as np
@@ -18,7 +20,7 @@ from power_grid_model.utils import json_deserialize
 
 from power_system_simulation.data_validation import validate_power_grid_data
 from power_system_simulation.exceptions import LoadProfileMismatchError, ValidationError
-from power_system_simulation.graph_processing import create_graph
+from power_system_simulation.graph_processing import create_graph, find_downstream_vertices, find_lv_feeder_ids
 
 optimization_criteria = Literal["minimal_deviation_u_pu", "minimal_energy_loss"]
 
@@ -184,13 +186,54 @@ class PowerGrid:
         return output
 
 
-# def ev_penetration_level(power_grid: PowerGrid, ev_charging_profile_path: str, penetration_level: float):
+def ev_penetration_level(
+    power_grid: PowerGrid, ev_charging_profile_path: str, penetration_level: float, seed: Optional[int] = None
+):
+    """
+    This function randomly adds EV charging pofiles to a a percentage of household (sym_loads) based on
+    a penetration level. Then it runs a time-series powerflow and returns the voltage and line summaries.
+    """
+    pg_copy = copy.deepcopy(power_grid)
+    rndm = random.Random(seed)
 
-#     pg_copy = copy.deepcopy(power_grid)
+    # Load EV profiles
+    ev_profiles = pd.read_parquet(ev_charging_profile_path)
+    available_ev_profiles = ev_profiles.copy()
+    ev_p_profile = pg_copy.p_profile.copy()
 
-#     # TODO do something with the pg to randomly distribute ev chargers from the ev
+    # Get grid data
+    sym_load_ids = pg_copy.p_profile.columns.tolist()
+    num_houses = len(sym_load_ids)
+    pg_copy_graph = create_graph(pg_copy)
+    lv_feeder_ids = find_lv_feeder_ids(pg_copy_graph)
+    num_feeders = len(lv_feeder_ids)
+    num_EV_per_LV = math.floor(penetration_level * num_houses / num_feeders)
 
-#     return [pg_copy.voltage_summary, pg_copy.line_summary]
+    # Map feeders to downstream houses
+    map_feeder_house = {}
+    for feeder_id in lv_feeder_ids:
+        downstream_vertices = find_downstream_vertices(pg_copy_graph, feeder_id)
+        feeder_houses = [node for node in downstream_vertices if node in sym_load_ids]
+        map_feeder_house[feeder_id] = feeder_houses
+
+    # Assign EV profiles to houses
+    for feeder_id, feeder_houses in map_feeder_house.items():
+        if num_EV_per_LV > len(feeder_houses):
+            raise ValueError(f"Feeder {feeder_id} doesn not have enough houses.")
+
+        selected_houses = rndm.sample(feeder_houses, num_EV_per_LV)
+        selected_ev_profiles = rndm.sample(list(available_ev_profiles.columns), num_EV_per_LV)
+
+        for house_id, ev_profile_id in zip(selected_houses, selected_ev_profiles):
+            ev_profile = available_ev_profiles[ev_profile_id]
+            ev_p_profile[house_id] += ev_profile
+            available_ev_profiles.drop(columns=[ev_profile_id], inplace=True)
+
+    # Run powerflow with altered p_profile
+    pg_copy.p_profile = ev_p_profile
+    pg_copy.run()
+
+    return [pg_copy.voltage_summary, pg_copy.line_summary]
 
 
 def optimum_tap_position(
@@ -201,7 +244,7 @@ def optimum_tap_position(
     assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
 
     transformers = pg_copy.power_grid["transformer"]
-    
+
     # TODO: move this validation to the data input stage of the PowerGrid object
     if len(transformers) != 1:
         raise ValidationError("The LV grid must contain exactly one transformer.")
