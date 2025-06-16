@@ -7,7 +7,7 @@ from typing import List
 
 import networkx as nx
 
-from power_system_simulation.data_validation import is_edge_enabled
+from power_system_simulation.input_data_validation import is_edge_enabled
 from power_system_simulation.exceptions import (
     EdgeAlreadyDisabledError,
     GraphCycleError,
@@ -90,12 +90,12 @@ def filter_disabled_edges(graph, remove_sym_loads=False):
             for u, v, d in graph.edges(data=True)
             if (d.get("from_status") != 0 and d.get("to_status") != 0) and (d.get("type") != "sym_load")
         ]
-        enabled_nodes = [(n, d) for n, d in graph.nodes(data=True) if d.get("type") != "sym_load"]
+        enabled_nodes = [(n,d) for n, d in graph.nodes(data=True) if d.get("type") != "sym_load"]
     else:
         enabled_edges = [
             (u, v, d) for u, v, d in graph.edges(data=True) if (d.get("from_status") != 0 and d.get("to_status") != 0)
         ]
-        enabled_nodes = graph.nodes
+        enabled_nodes = [(n,d) for n, d in graph.nodes(data=True)]
 
     filtered.add_nodes_from(enabled_nodes)
     filtered.add_edges_from(enabled_edges)
@@ -164,8 +164,6 @@ def find_downstream_vertices(graph: nx.Graph, edge_id: int) -> List[int]:
         downstream_vertex = v
     elif bfs_tree.has_edge(v, u):
         downstream_vertex = u
-    else:
-        return []
 
     subtree_nodes = list(nx.descendants(bfs_tree, downstream_vertex))
     subtree_nodes.append(downstream_vertex)

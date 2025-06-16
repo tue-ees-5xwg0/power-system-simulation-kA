@@ -16,24 +16,19 @@ from power_grid_model import (
     PowerGridModel,
     initialize_array,
 )
-from power_grid_model.utils import json_deserialize
 
-from power_system_simulation.data_validation import validate_power_grid_data
+from power_system_simulation.input_data_validation import (
+    load_grid_json,
+    load_meta_data_json,
+    validate_ev_charging_profile,
+    validate_meta_data,
+    validate_power_grid_data,
+    validate_power_profiles_timestamps,
+)
 from power_system_simulation.exceptions import LoadProfileMismatchError, ValidationError
 from power_system_simulation.graph_processing import create_graph, find_downstream_vertices, find_lv_feeder_ids
 
 optimization_criteria = Literal["minimal_deviation_u_pu", "minimal_energy_loss"]
-
-
-def load_grid_json(path):
-    """
-    Loads the power_grid from a specified .PGM file and validates it.
-    """
-    with open(path, "r", encoding="utf-8") as file:
-        power_grid = json_deserialize(file.read())
-    validate_power_grid_data(power_grid)
-
-    return power_grid
 
 
 class PowerGrid:
@@ -43,11 +38,19 @@ class PowerGrid:
     """
 
     def __init__(
-        self, power_grid_path: str, p_profile_path: Optional[str] = None, q_profile_path: Optional[str] = None
+        self,
+        power_grid_path: str,
+        power_grid_meta_data_path: str,
+        p_profile_path: Optional[str] = None,
+        q_profile_path: Optional[str] = None,
     ):
 
         self.power_grid = load_grid_json(power_grid_path)
+        validate_power_grid_data(self.power_grid)
+        self.meta_data = load_meta_data_json(power_grid_meta_data_path)
+        validate_meta_data(self.power_grid, self.meta_data)
         self.graph = create_graph(self.power_grid)
+
         self.p_profile = None
         self.q_profile = None
 
@@ -56,6 +59,10 @@ class PowerGrid:
 
         if q_profile_path is not None:
             self.q_profile = pd.read_parquet(q_profile_path)
+
+        if p_profile_path is not None and q_profile_path is not None:
+            self._validate_power_profiles_load_ids()
+            validate_power_profiles_timestamps(self.p_profile, self.q_profile)
 
         self.batch_output = None
         self.voltage_summary = None
@@ -73,12 +80,19 @@ class PowerGrid:
         """
         self.q_profile = pd.read_parquet(path)
 
+    def update_graph(self):
+        """
+        Used to update the internal graph after changing the power_grid data.
+        """
+        create_graph(self.power_grid)
+
     def run(self):
         """
         After initializing the class and setting up the model properties, this function can be run to process the
         model and save the output to batch_output, voltage_summary and line_summary.
         """
-        self._validate_power_profiles()
+        self._validate_power_profiles_load_ids()
+        validate_power_profiles_timestamps(self.p_profile, self.q_profile)
 
         model = PowerGridModel(self.power_grid)
         num_time_stamps, num_sym_loads = self.p_profile.shape
@@ -101,11 +115,17 @@ class PowerGrid:
         self.voltage_summary = self._get_voltage_summary()
         self.line_summary = self._get_line_summary()
 
-    def _validate_power_profiles(self):
-        if not self.p_profile.index.equals(self.q_profile.index):
-            raise LoadProfileMismatchError("Timestamps do not match between p and q profiles.")
+    def _validate_power_profiles_load_ids(self):
         if not self.p_profile.columns.equals(self.q_profile.columns):
-            raise LoadProfileMismatchError("Load IDs do not match between p and q profiles.")
+            raise LoadProfileMismatchError("Load IDs do not match between power profiles.")
+
+        for profile_id in self.p_profile.columns:
+            found = False
+            for load in self.power_grid["sym_load"]:
+                if load["id"] == profile_id:
+                    found = True
+            if not found:
+                raise LoadProfileMismatchError(f"Load ID {profile_id} of in power_profiles not found in sym_loads.")
 
     def _get_voltage_summary(self):
         """
@@ -200,6 +220,7 @@ def ev_penetration_level(
     ev_profiles = pd.read_parquet(ev_charging_profile_path)
     available_ev_profiles = ev_profiles.copy()
     ev_p_profile = pg_copy.p_profile.copy()
+    ev_charging_profile = pd.read_parquet(ev_charging_profile_path)
 
     # Get grid data
     sym_load_ids = pg_copy.p_profile.columns.tolist()
@@ -210,6 +231,8 @@ def ev_penetration_level(
     lv_feeder_ids = find_lv_feeder_ids(pg_copy_graph)
     num_feeders = len(lv_feeder_ids)
     num_EV_per_LV = math.floor(penetration_level * num_houses / num_feeders)
+    validate_ev_charging_profile(power_grid, ev_charging_profile)
+    validate_power_profiles_timestamps(power_grid.p_profile, ev_charging_profile)
 
     # Map feeders to downstream houses
     map_feeder_house = {}
@@ -238,9 +261,7 @@ def ev_penetration_level(
     return [pg_copy.voltage_summary, pg_copy.line_summary]
 
 
-def optimum_tap_position(
-    power_grid: PowerGrid, optimization_criterium: optimization_criteria = "minimal_deviation_u_pu"
-):
+def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimization_criteria):
     pg_copy = copy.deepcopy(power_grid)
     options = get_args(optimization_criteria)
     assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
@@ -287,12 +308,13 @@ def optimum_tap_position(
     return best_tap
 
 
-# def n_1_calculation(power_grid: PowerGrid):
-#     pg_copy = copy.deepcopy(power_grid)
-#     output = pd.DataFrame()
+def n_1_calculation(power_grid: PowerGrid):
+    # pg_copy = copy.deepcopy(power_grid)
+    # output = pd.DataFrame()
 
-#     # TODO create alternative power_grids, one for each different alternative line. Summarize the
-#     # results into the output table. Use
-#     # the graph_processor to find out which lines to use.
+    # # TODO create alternative power_grids, one for each different alternative line. Summarize the
+    # # results into the output table. Use
+    # # the graph_processor to find out which lines to use.
 
-#     return output
+    # return output
+    pass

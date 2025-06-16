@@ -3,18 +3,8 @@ from contextlib import nullcontext as does_not_raise
 import pytest
 from power_grid_model.utils import json_deserialize
 
-from power_system_simulation.data_validation import *
 from power_system_simulation.exceptions import *
-from power_system_simulation.graph_processing import (
-    create_graph,
-    filter_disabled_edges,
-    find_alternative_edges,
-    find_downstream_vertices,
-    is_cyclic,
-    is_edge_enabled,
-    set_edge_enabled_status,
-)
-from power_system_simulation.power_grid_calculation import load_grid_json
+from power_system_simulation.graph_processing import *
 
 base_test_data_path = "tests/test_data/incorrect_power_grids/"
 
@@ -41,95 +31,7 @@ def test_init_normal():
     create_graph(power_grid)
 
 
-def test_init_err1_duplicate_node_ids():
-    """
-    Duplicate node id 4, should raise an IDNotUniqueError.
-
-    1--[9]--2--[10]-3------(16)
-    ^       |
-    20     [4]
-            |
-            4--[12]-4------(17)
-            |
-           [13]
-            |
-            6--[14]-7--[15]-8-----(19)
-                    |
-                   (18)
-    """
-
-    with pytest.raises(IDNotUniqueError) as output:
-        load_grid_json(base_test_data_path + "err_duplicate_items" + ".json")
-    assert output.value.args[0] == "There are components with duplicate IDs."
-
-
-def test_init_err3_invalid_sym_load_node_id():
-    """
-    A sym_load is connected to a non-existent node.
-
-    1--[9]--2--[7]-3        99------(16)
-    ^       |
-    20     [11]
-            |
-            4--[12]-5------(17)
-            |
-           [13]
-            |
-            6--[14]-7--[15]-8-----(19)
-                    |
-                   (18)
-    """
-
-    with pytest.raises(IDNotFoundError) as output:
-        load_grid_json(base_test_data_path + "err_sym_load_node_invalid" + ".json")
-    assert output.value.args[0] == "Sym_load(s) contain(s) non-existent node ID."
-
-
-def test_init_err3_invalid_line_node_id():
-    """
-    A line is connected to a non-existent node.
-
-    1--[9]--2--[10]-3------(16)
-    ^       |
-    20     [11]   /--99
-            |    /
-            4--[12]  5------(17)
-            |
-           [13]
-            |
-            6--[14]-7--[15]-8-----(19)
-                    |
-                   (18)
-    """
-
-    with pytest.raises(IDNotFoundError) as output:
-        load_grid_json(base_test_data_path + "err_line_node_invalid" + ".json")
-    assert output.value.args[0] == "Line(s) contain(s) non-existent node ID."
-
-
-def test_init_err5_invalid_source_node_id():
-    """
-    The source ID is invalid.
-
-    1--[9]--2--[10]-3------(16)     99
-            |                       ^
-           [11]                     20
-            |
-            4--[12]-5------(17)
-            |
-           [13]
-            |
-            6--[14]-7--[15]-8-----(19)
-                    |
-                   (18)
-    """
-
-    with pytest.raises(IDNotFoundError) as output:
-        load_grid_json(base_test_data_path + "err_source_node_id_invalid" + ".json")
-    assert output.value.args[0] == "The provided source_node_id is not in the node list."
-
-
-def test_init_err6_graph_not_connected_error():
+def test_init_graph_not_connected_error():
     """
     One of the edges is missing, causing the graph to not be fully connected. Should raise a
     GraphNotFullyConnectedError.
@@ -155,7 +57,7 @@ def test_init_err6_graph_not_connected_error():
     assert output.value.args[0] == "The graph is not fully connected."
 
 
-def test_init_err6_graph_not_connected_disabled_error():
+def test_init_graph_not_connected_disabled_error():
     """
     One of the edges is disabled, causing the graph to not be fully connected. Should raise a
     GraphNotFullyConnectedError.
@@ -181,7 +83,7 @@ def test_init_err6_graph_not_connected_disabled_error():
     assert output.value.args[0] == "The graph is not fully connected."
 
 
-def test_init_err7_graph_contains_cycle_error():
+def test_init_graph_contains_cycle_error():
     """
     The graph contains a cycle, which is not allowed. This should raise a GraphCycleError.
 
@@ -206,7 +108,7 @@ def test_init_err7_graph_contains_cycle_error():
     assert output.value.args[0] == "The graph contains a cycle."
 
 
-def test_init_err7_graph_contains_cycle_disabled_error():
+def test_init_graph_contains_cycle_disabled():
     """
     The graph contains a cycle, but the cycle is broken by a disabled edge, which is allowed. This should not raise
     an error.
@@ -228,6 +130,47 @@ def test_init_err7_graph_contains_cycle_disabled_error():
         power_grid = json_deserialize(file.read())
 
     create_graph(power_grid)
+
+
+def test_filter_disabled_edges():
+    """
+    Returns a graph with all edges removed, and a version with all edges and sym_loads removed.
+
+    1--[9]--2--[10]-3------(16)
+    ^       |
+    20     [11]    [21]
+            |
+            4--[12]-5------(17)
+            |
+           [13]    [22]
+            |
+            6--[14]-7--[15]-8-----(19)
+                    |
+                   (18)
+    """
+
+    with open(base_test_data_path + "graph_cycle_disabled" + ".json", "r", encoding="utf-8") as file:
+        power_grid = json_deserialize(file.read())
+    with open(base_test_data_path + "graph_cycle_disabled_filtered" + ".json", "r", encoding="utf-8") as file:
+        power_grid_filtered = json_deserialize(file.read())
+    with open(base_test_data_path + "graph_cycle_disabled_filtered_no_sym_loads" + ".json", "r", encoding="utf-8") as file:
+        power_grid_filtered_no_sym_loads = json_deserialize(file.read())
+        
+    test_graph_filtered = filter_disabled_edges(create_graph(power_grid))
+    test_graph_filtered_no_sym_loads = filter_disabled_edges(create_graph(power_grid), True)
+
+    control_graph = create_graph(power_grid_filtered)
+    control_graph_no_sym_loads = create_graph(power_grid_filtered_no_sym_loads)
+
+    assert test_graph_filtered.nodes == control_graph.nodes
+    assert test_graph_filtered.edges == control_graph.edges
+    assert not is_cyclic(test_graph_filtered)
+    assert nx.is_connected(test_graph_filtered)
+
+    assert test_graph_filtered_no_sym_loads.nodes == control_graph_no_sym_loads.nodes
+    assert test_graph_filtered_no_sym_loads.edges == control_graph_no_sym_loads.edges
+    assert not is_cyclic(test_graph_filtered_no_sym_loads)
+    assert nx.is_connected(test_graph_filtered_no_sym_loads)
 
 
 def test_is_edge_enabled():
@@ -339,7 +282,7 @@ def test_edge_set_to_correct_enabled_status():
     assert is_edge_enabled(test, 21) == True
 
 
-def test_find_alternative_edges_err1():
+def test_find_alternative_edges():
     """
     Tests that alternative edges are found
 
