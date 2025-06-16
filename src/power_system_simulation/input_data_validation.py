@@ -42,12 +42,9 @@ def has_node_ids(nodes: List[Dict], lines: List[Dict]):
             if (line["from_node"] not in node_ids) or (line["to_node"] not in node_ids):
                 return False
     except:
-        try:
-            for line in lines:
-                if line["node"] not in node_ids:
-                    return False
-        except:
-            raise TypeError("Datatype not supported by this function")
+        for line in lines:
+            if line["node"] not in node_ids:
+                return False
 
     return True
 
@@ -66,7 +63,7 @@ def is_edge_enabled(graph: nx.Graph, edge_id: int) -> bool:
     """
     for _, _, d in graph.edges(data=True):
         if d.get("id") == edge_id:
-            if (d.get("to_status") == 1 and d.get("from_status") == 1):
+            if d.get("to_status") == 1 and d.get("from_status") == 1:
                 return True
             else:
                 return False
@@ -120,7 +117,7 @@ def validate_meta_data(power_grid, meta_data):
     # validate that all feeders have from_node equal to to_node of transformer (meta_data: lv_busbar)
     for feeder in feeder_lines:
         if feeder["from_node"] != power_grid["transformer"][0]["to_node"]:
-            raise ValidationError(f"Feeder ID {feeder["id"]} not connected to the transformer output (LV_busbar.")
+            raise ValidationError(f"Feeder ID {feeder["id"]} not connected to the transformer output (LV_busbar).")
 
 
 def validate_power_profiles_timestamps(profile1: pd.DataFrame, profile2: pd.DataFrame):

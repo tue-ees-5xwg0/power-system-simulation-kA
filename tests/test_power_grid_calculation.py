@@ -25,9 +25,8 @@ voltage_summary_small_path = "tests/test_data/small_power_grid/test_voltage_summ
 
 
 def test_power_grid_init_normal():
-    test_grid = PowerGrid(
-        pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
-    )
+    # test normal initialization and properly shaped input data
+    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_small_path, q_profile_small_path)
 
     assert test_grid.p_profile.shape == (960, 4)
     assert test_grid.p_profile.shape == (960, 4)
@@ -36,6 +35,7 @@ def test_power_grid_init_normal():
 def test_power_grid_init_err_load_profile_mismatch():
     test_grid = PowerGrid(pgm_small_path, meta_data_small_path)
 
+    # test non-matching load IDs
     time_stamps1 = pd.date_range("2025-01-01", periods=3, freq="h")
     time_stamps2 = pd.date_range("2025-02-01", periods=3, freq="h")
     p_df = pd.DataFrame(
@@ -46,7 +46,7 @@ def test_power_grid_init_err_load_profile_mismatch():
     q_df = pd.DataFrame(
         data=[[0.5, 1.5], [0.6, 1.6], [0.7, 1.7]],
         index=time_stamps1,
-        columns=[12, 99],
+        columns=[12, 14],
     )
 
     test_grid.p_profile = p_df
@@ -55,6 +55,7 @@ def test_power_grid_init_err_load_profile_mismatch():
     with pytest.raises(LoadProfileMismatchError, match="Load IDs do not match between power profiles."):
         test_grid.run()
 
+    # test non-matching timestamps
     q_df = pd.DataFrame(
         data=[[0.5, 1.5], [0.6, 1.6], [0.7, 1.7]],
         index=time_stamps2,
@@ -66,11 +67,27 @@ def test_power_grid_init_err_load_profile_mismatch():
     with pytest.raises(LoadProfileMismatchError, match="Timestamps do not match between power profiles."):
         test_grid.run()
 
+    # test non-existing load ID in power_grid
+    p_df = pd.DataFrame(
+        data=[[1.0, 2.0], [1.1, 2.1], [1.2, 2.2]],
+        index=time_stamps1,
+        columns=[12, 99],
+    )
+    q_df = pd.DataFrame(
+        data=[[0.5, 1.5], [0.6, 1.6], [0.7, 1.7]],
+        index=time_stamps1,
+        columns=[12, 99],
+    )
+
+    test_grid.p_profile = p_df
+    test_grid.q_profile = q_df
+
+    with pytest.raises(LoadProfileMismatchError, match="Load ID 99 of in power_profiles not found in sym_loads."):
+        test_grid.run()
+
 
 def test_power_grid_run_model():
-    test_grid = PowerGrid(
-        pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
-    )
+    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_small_path, q_profile_small_path)
     test_grid.run()
 
     # checking if there is something stored in batch_output
@@ -81,9 +98,7 @@ def test_power_grid_run_model():
 
 
 def test_power_grid_get_voltage_summary():
-    test_grid = PowerGrid(
-        pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
-    )
+    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_small_path, q_profile_small_path)
 
     # test initialized to None
     assert test_grid.voltage_summary is None
@@ -103,9 +118,7 @@ def test_power_grid_get_voltage_summary():
 
 def test_power_grid_get_line_summary():
 
-    test_grid = PowerGrid(
-        pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
-    )
+    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_small_path, q_profile_small_path)
 
     # test initialized to None
     assert test_grid.line_summary is None
@@ -125,21 +138,31 @@ def test_power_grid_get_line_summary():
 
 def test_feature_ev_penetration_level():
 
-    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
-    
+    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_small_path, q_profile_small_path)
+
 
 def test_optimum_tap_position():
-     
-    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
-     
+
+    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_small_path, q_profile_small_path)
+
 
 def test_n_1_calculation():
 
-    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
+    test_grid = PowerGrid(pgm_small_path, meta_data_small_path, p_profile_small_path, q_profile_small_path)
 
+    # test for invalid node
     with pytest.raises(IDNotFoundError) as output:
         n_1_calculation(test_grid, 5)
     assert output.value.args[0] == "The chosen edge 5 is not in the ID list."
 
-    test = n_1_calculation(test_grid, 20)
-    
+    # test normal operation
+    assert type(n_1_calculation(test_grid, 20)) == pd.DataFrame
+
+    # test when no other edges are available, output == empty dataframe
+    output = pd.DataFrame(columns=["maximum_line_loading_id", "maximum_line_loading_timestamp", "maximum_line_loading"])
+    output.index.name = "alternative_line"
+    assert compare_pandas_dataframes_fp(
+        n_1_calculation(test_grid, 17),
+        output,
+        ["maximum_line_loading_id", "maximum_line_loading_timestamp", "maximum_line_loading"],
+    )

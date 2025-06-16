@@ -17,16 +17,16 @@ from power_grid_model import (
     initialize_array,
 )
 
-from power_system_simulation.exceptions import LoadProfileMismatchError, ValidationError, EdgeAlreadyDisabledError
-from power_system_simulation.graph_processing import create_graph, find_downstream_vertices, find_alternative_edges
+from power_system_simulation.exceptions import EdgeAlreadyDisabledError, LoadProfileMismatchError, ValidationError
+from power_system_simulation.graph_processing import create_graph, find_alternative_edges, find_downstream_vertices
 from power_system_simulation.input_data_validation import (
+    is_edge_enabled,
     load_grid_json,
     load_meta_data_json,
     validate_ev_charging_profile,
     validate_meta_data,
     validate_power_grid_data,
     validate_power_profiles_timestamps,
-    is_edge_enabled
 )
 
 optimization_criteria = Literal["minimal_deviation_u_pu", "minimal_energy_loss"]
@@ -45,19 +45,15 @@ class PowerGrid:
         p_profile_path: Optional[str] = None,
         q_profile_path: Optional[str] = None,
     ):
-
+        # load and validate power grid and meta-data
         self.power_grid = load_grid_json(power_grid_path)
         validate_power_grid_data(self.power_grid)
         self.meta_data = load_meta_data_json(power_grid_meta_data_path)
         validate_meta_data(self.power_grid, self.meta_data)
-        self.graph = create_graph(self.power_grid)
 
-        self.p_profile = None
-        self.q_profile = None
-
+        # load and validate power profiles. Only validates if both power profiles are initiated together.
         if p_profile_path is not None:
             self.p_profile = pd.read_parquet(p_profile_path)
-
         if q_profile_path is not None:
             self.q_profile = pd.read_parquet(q_profile_path)
 
@@ -65,27 +61,19 @@ class PowerGrid:
             self._validate_power_profiles_load_ids()
             validate_power_profiles_timestamps(self.p_profile, self.q_profile)
 
+        # create and validate graph (validation happens in the graph)
+        self.update_graph()
+
+        # initialize power-grid-model output
         self.batch_output = None
         self.voltage_summary = None
         self.line_summary = None
-
-    def load_p_profile_parquet(self, path):
-        """
-        Loads the p_profile into the PowerGrid object.
-        """
-        self.p_profile = pd.read_parquet(path)
-
-    def load_q_profile_parquet(self, path):
-        """
-        Loads the q_profile into the PowerGrid object.
-        """
-        self.q_profile = pd.read_parquet(path)
 
     def update_graph(self):
         """
         Used to update the internal graph after changing the power_grid data.
         """
-        create_graph(self.power_grid)
+        self.graph = create_graph(self.power_grid)
 
     def run(self):
         """
@@ -117,9 +105,11 @@ class PowerGrid:
         self.line_summary = self._get_line_summary()
 
     def _validate_power_profiles_load_ids(self):
+        # check for matching load ids between profiles
         if not self.p_profile.columns.equals(self.q_profile.columns):
             raise LoadProfileMismatchError("Load IDs do not match between power profiles.")
 
+        # check for presense of load ids in the power_grid
         for profile_id in self.p_profile.columns:
             found = False
             for load in self.power_grid["sym_load"]:
@@ -153,6 +143,7 @@ class PowerGrid:
             temp_min_value.append(timestamp[i_min]["u_pu"])
             temp_min_node.append(timestamp[i_min]["id"])
 
+        # summarize output into dataframe
         output["max_u_pu_node"] = temp_max_node
         output["max_u_pu"] = temp_max_value
         output["min_u_pu_node"] = temp_min_node
@@ -189,7 +180,7 @@ class PowerGrid:
         temp_max_value = []
         temp_min_timestamp = []
         temp_min_value = []
-        
+
         for line in lines_swapped:
             i_max = line["loading"].argmax()
             temp_max_value.append(line[i_max]["loading"])
@@ -199,6 +190,7 @@ class PowerGrid:
             temp_min_value.append(line[i_min]["loading"])
             temp_min_timestamp.append(self.p_profile.index[i_min])
 
+        # summarize output into dataframe
         output["max_loading_timestamp"] = temp_max_timestamp
         output["max_loading"] = temp_max_value
         output["min_loading_timestamp"] = temp_min_timestamp
@@ -251,6 +243,7 @@ def ev_penetration_level(
             power_grid_copy.p_profile[house_id] += ev_profile
             ev_profiles.drop(columns=[ev_profile_id], inplace=True)
 
+    # run model with ev_profile added to the load and return output
     power_grid_copy.run()
     return [power_grid_copy.voltage_summary, power_grid_copy.line_summary]
 
@@ -259,11 +252,10 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
     pg_copy = copy.deepcopy(power_grid)
     options = get_args(optimization_criteria)
     assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
-    
-    min= power_grid.power_grid["transformer"][0]["tap_min"]
-    max= power_grid.power_grid["transformer"][0]["tap_max"]
-    tap_range = range(max, min+1)
-    
+
+    min = power_grid.power_grid["transformer"][0]["tap_min"]
+    max = power_grid.power_grid["transformer"][0]["tap_max"]
+    tap_range = range(max, min + 1)
 
     # lower is better
     best_score = float("inf")
@@ -272,18 +264,20 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
     for tap_pos in tap_range:
         pg_copy.power_grid["transformer"][0]["tap_pos"] = tap_pos
         pg_copy.run()
-        
+
         if optimization_criterium == "minimal_energy_loss":
             total_energy_loss = pg_copy.line_summary["energy_loss"].sum()
             score = total_energy_loss
 
         elif optimization_criterium == "minimal_deviation_u_pu":
-            voltage_dev = abs(pg_copy.voltage_summary["max_u_pu"] - 1.0) + abs(pg_copy.voltage_summary["min_u_pu"] - 1.0)
+            voltage_dev = abs(pg_copy.voltage_summary["max_u_pu"] - 1.0) + abs(
+                pg_copy.voltage_summary["min_u_pu"] - 1.0
+            )
 
             score = voltage_dev.mean()
-        
+
         print(score)
-        
+
         if score < best_score:
             best_score = score
             best_tap = tap_pos
@@ -292,35 +286,39 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
 
 
 def n_1_calculation(power_grid: PowerGrid, line_id: int):
+    # initialize output
     output = pd.DataFrame(columns=["maximum_line_loading_id", "maximum_line_loading_timestamp", "maximum_line_loading"])
     output.index.name = "alternative_line"
-    
+
+    # check for alternative lines
+    power_grid.update_graph()
     alternative_lines = find_alternative_edges(power_grid.graph, line_id)
 
-    if len(alternative_lines) == 0:
-        return output
-
+    # run model for each alternative line
     for alternative_line in alternative_lines:
         power_grid_copy = copy.deepcopy(power_grid)
 
-        index = (power_grid_copy.power_grid["line"]["id"] == alternative_line)
+        # turn provided line off and turn alternative on
+        index = power_grid_copy.power_grid["line"]["id"] == alternative_line
         power_grid_copy.power_grid["line"]["from_status"][index] = 1
         power_grid_copy.power_grid["line"]["to_status"][index] = 1
 
-        index = (power_grid_copy.power_grid["line"]["id"] == line_id)
+        index = power_grid_copy.power_grid["line"]["id"] == line_id
         power_grid_copy.power_grid["line"]["from_status"][index] = 0
         power_grid_copy.power_grid["line"]["to_status"][index] = 0
 
+        # run model
         power_grid_copy.run()
 
+        # summarize outputs into dataframe
         summary = power_grid_copy.line_summary
-        print(summary)
         index = summary["max_loading"].idxmax()
         output.loc[alternative_line] = {
             "maximum_line_loading_id": index,
             "maximum_line_loading_timestamp": summary.loc[index, "max_loading_timestamp"],
-            "maximum_line_loading": summary.loc[index, "max_loading"]}
-        
+            "maximum_line_loading": summary.loc[index, "max_loading"],
+        }
+
         del power_grid_copy
 
     return output
