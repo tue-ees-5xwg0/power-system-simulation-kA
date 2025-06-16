@@ -204,6 +204,8 @@ def ev_penetration_level(
     # Get grid data
     sym_load_ids = pg_copy.p_profile.columns.tolist()
     num_houses = len(sym_load_ids)
+    if num_houses > len(ev_profiles):
+        raise ValidationError(f"The number of EV charging profiles is less than the number of houses")
     pg_copy_graph = create_graph(pg_copy)
     lv_feeder_ids = find_lv_feeder_ids(pg_copy_graph)
     num_feeders = len(lv_feeder_ids)

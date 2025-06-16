@@ -13,6 +13,7 @@ from power_system_simulation.exceptions import (
     GraphCycleError,
     GraphNotFullyConnectedError,
     IDNotFoundError,
+    ValidationError
 )
 
 
@@ -207,8 +208,9 @@ def find_lv_feeder_ids(graph: nx.Graph):
     that originate from the transformer's low-voltage (to_node) side.
     """
     transformers = graph.get("transformer", [])
+    # TODO: Remove this if validation is done when constructing the graph
     if len(transformers) != 1:
-        raise ValueError("Expected exactly one transformer in the grid.")
+        raise ValidationError("The LV grid must contain exactly one transformer.")
 
     transformer_to_node = transformers[0]["to_node"]
     lv_feeder_ids = [line["id"] for line in graph.get("line", []) if line["from_node"] == transformer_to_node]
