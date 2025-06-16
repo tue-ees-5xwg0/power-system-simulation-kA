@@ -239,7 +239,7 @@ def ev_penetration_level(
     # Assign EV profiles to houses
     for feeder_id, feeder_houses in map_feeder_house.items():
         if num_EV_per_LV > len(feeder_houses):
-            raise ValueError(f"Feeder {feeder_id} doesn not have enough houses.")
+            raise ValueError(f"Feeder {feeder_id} doesn't not have enough houses.")
 
         selected_houses = rndm.sample(feeder_houses, num_EV_per_LV)
         selected_ev_profiles = rndm.sample(list(ev_profiles.columns), num_EV_per_LV)
@@ -264,9 +264,11 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
     options = get_args(optimization_criteria)
     assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
 
+
     min_tp = power_grid.power_grid["transformer"][0]["tap_min"]
     max_tp = power_grid.power_grid["transformer"][0]["tap_max"]
     tap_range = range(max_tp, min_tp + 1)
+
 
     # lower is better
     best_score = float("inf")
@@ -275,7 +277,9 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
     for tap_pos in tap_range:
         pg_copy.power_grid["transformer"][0]["tap_pos"] = tap_pos
         pg_copy.run()
+
         score = float("inf")
+
         if optimization_criterium == "minimal_energy_loss":
             total_energy_loss = pg_copy.line_summary["energy_loss"].sum()
             score = total_energy_loss
