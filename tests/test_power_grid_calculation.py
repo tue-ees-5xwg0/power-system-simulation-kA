@@ -134,6 +134,38 @@ def test_optimum_tap_position():
     )
     test_grid.run()
 
-    output = optimum_tap_position(test_grid, "minimal_energy_loss")
-    test_grid.run()
-    output = optimum_tap_position(test_grid, "minimal_deviation_u_pu")
+    # Extract tap range
+    tap_min = test_grid.power_grid["transformer"][0]["tap_min"]
+    tap_max = test_grid.power_grid["transformer"][0]["tap_max"]
+    tap_range = range(tap_max, tap_min + 1)
+
+    # Run optimization for minimal_energy_loss
+    best_tap_eloss = optimum_tap_position(test_grid, "minimal_energy_loss")
+    assert best_tap_eloss in tap_range, "Best tap position is out of valid range"
+
+    # Manually check energy losses for neighboring tap positions
+    losses = {}
+    for tap in tap_range:
+        test_grid.power_grid["transformer"][0]["tap_pos"] = tap
+        test_grid.run()
+        losses[tap] = test_grid.line_summary["energy_loss"].sum()
+
+    min_loss_tap = min(losses, key=losses.get)
+    assert best_tap_eloss == min_loss_tap, f"Expected tap with minimum loss to be {min_loss_tap}, got {best_tap_eloss}"
+
+    # Run optimization for minimal_deviation_u_pu
+    best_tap_voltage = optimum_tap_position(test_grid, "minimal_deviation_u_pu")
+    assert best_tap_voltage in tap_range, "Best voltage tap position is out of valid range"
+
+    # Optionally log deviations for human-readable output (or deeper analysis)
+    deviations = {}
+    for tap in tap_range:
+        test_grid.power_grid["transformer"][0]["tap_pos"] = tap
+        test_grid.run()
+        voltage_dev = abs(test_grid.voltage_summary["max_u_pu"] - 1.0) + abs(test_grid.voltage_summary["min_u_pu"] - 1.0)
+        deviations[tap] = voltage_dev.mean()
+
+    min_dev_tap = min(deviations, key=deviations.get)
+    assert best_tap_voltage == min_dev_tap, f"Expected tap with minimum voltage deviation to be {min_dev_tap}, got {best_tap_voltage}"
+
+
