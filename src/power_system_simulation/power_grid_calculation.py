@@ -15,7 +15,7 @@ from power_grid_model import (
     initialize_array,
 )
 
-from power_system_simulation.data_validation import (
+from power_system_simulation.input_data_validation import (
     load_grid_json,
     load_meta_data_json,
     validate_ev_charging_profile,
@@ -77,6 +77,12 @@ class PowerGrid:
         Loads the q_profile into the PowerGrid object.
         """
         self.q_profile = pd.read_parquet(path)
+
+    def update_graph(self):
+        """
+        Used to update the internal graph after changing the power_grid data.
+        """
+        create_graph(self.power_grid)
 
     def run(self):
         """

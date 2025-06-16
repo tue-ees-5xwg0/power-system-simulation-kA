@@ -119,8 +119,6 @@ def validate_meta_data(power_grid, meta_data):
         if feeder["from_node"] != power_grid["transformer"][0]["to_node"]:
             raise ValidationError(f"Feeder ID {feeder["id"]} not connected to the transformer output (LV_busbar.")
 
-    # validate that
-
 
 def validate_power_profiles_timestamps(profile1: pd.DataFrame, profile2: pd.DataFrame):
     if not profile1.index.equals(profile2.index):

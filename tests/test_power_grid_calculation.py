@@ -5,7 +5,6 @@ import pytest
 from power_grid_model import ComponentType
 from test_utilities import compare_pandas_dataframes_fp
 
-from power_system_simulation.data_validation import *
 from power_system_simulation.exceptions import *
 from power_system_simulation.power_grid_calculation import *
 
