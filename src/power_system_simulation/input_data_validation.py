@@ -66,7 +66,7 @@ def is_edge_enabled(graph: nx.Graph, edge_id: int) -> bool:
     """
     for _, _, d in graph.edges(data=True):
         if d.get("id") == edge_id:
-            if (d.get("to_status") == 1 and d.get("from_status") == 1):
+            if d.get("to_status") == 1 and d.get("from_status") == 1:
                 return True
             else:
                 return False

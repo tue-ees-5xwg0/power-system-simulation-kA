@@ -17,16 +17,16 @@ from power_grid_model import (
     initialize_array,
 )
 
-from power_system_simulation.exceptions import LoadProfileMismatchError, ValidationError, EdgeAlreadyDisabledError
-from power_system_simulation.graph_processing import create_graph, find_downstream_vertices, find_alternative_edges
+from power_system_simulation.exceptions import EdgeAlreadyDisabledError, LoadProfileMismatchError, ValidationError
+from power_system_simulation.graph_processing import create_graph, find_alternative_edges, find_downstream_vertices
 from power_system_simulation.input_data_validation import (
+    is_edge_enabled,
     load_grid_json,
     load_meta_data_json,
     validate_ev_charging_profile,
     validate_meta_data,
     validate_power_grid_data,
     validate_power_profiles_timestamps,
-    is_edge_enabled
 )
 
 optimization_criteria = Literal["minimal_deviation_u_pu", "minimal_energy_loss"]
@@ -258,11 +258,10 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
     pg_copy = copy.deepcopy(power_grid)
     options = get_args(optimization_criteria)
     assert optimization_criterium in options, f"'{optimization_criterium}' is not in {options}"
-    
-    min= power_grid.power_grid["transformer"][0]["tap_min"]
-    max= power_grid.power_grid["transformer"][0]["tap_max"]
-    tap_range = range(max, min+1)
-    
+
+    min = power_grid.power_grid["transformer"][0]["tap_min"]
+    max = power_grid.power_grid["transformer"][0]["tap_max"]
+    tap_range = range(max, min + 1)
 
     # lower is better
     best_score = float("inf")
@@ -271,18 +270,20 @@ def optimum_tap_position(power_grid: PowerGrid, optimization_criterium: optimiza
     for tap_pos in tap_range:
         pg_copy.power_grid["transformer"][0]["tap_pos"] = tap_pos
         pg_copy.run()
-        
+
         if optimization_criterium == "minimal_energy_loss":
             total_energy_loss = pg_copy.line_summary["energy_loss"].sum()
             score = total_energy_loss
 
         elif optimization_criterium == "minimal_deviation_u_pu":
-            voltage_dev = abs(pg_copy.voltage_summary["max_u_pu"] - 1.0) + abs(pg_copy.voltage_summary["min_u_pu"] - 1.0)
+            voltage_dev = abs(pg_copy.voltage_summary["max_u_pu"] - 1.0) + abs(
+                pg_copy.voltage_summary["min_u_pu"] - 1.0
+            )
 
             score = voltage_dev.mean()
-        
+
         print(score)
-        
+
         if score < best_score:
             best_score = score
             best_tap = tap_pos
@@ -296,10 +297,9 @@ def n_1_calculation(power_grid: PowerGrid, line_id: int):
     power_grid.run()
     print(power_grid.batch_output["line"])
 
-
     # if not is_edge_enabled(power_grid.graph, line_id):
     #     raise EdgeAlreadyDisabledError(f"Line {line_id} is already disabled.")
-    
+
     alternative_lines = find_alternative_edges(power_grid.graph, line_id)
 
     if len(alternative_lines) == 0:
@@ -308,11 +308,11 @@ def n_1_calculation(power_grid: PowerGrid, line_id: int):
     for alternative_line in alternative_lines:
         power_grid_copy = copy.deepcopy(power_grid)
 
-        index = (power_grid_copy.power_grid["line"]["id"] == alternative_line)
+        index = power_grid_copy.power_grid["line"]["id"] == alternative_line
         power_grid_copy.power_grid["line"]["from_status"][index] = 1
         power_grid_copy.power_grid["line"]["to_status"][index] = 1
 
-        index = (power_grid_copy.power_grid["line"]["id"] == line_id)
+        index = power_grid_copy.power_grid["line"]["id"] == line_id
         power_grid_copy.power_grid["line"]["from_status"][index] = 0
         power_grid_copy.power_grid["line"]["to_status"][index] = 0
 
@@ -324,11 +324,10 @@ def n_1_calculation(power_grid: PowerGrid, line_id: int):
         output.loc[alternative_line] = {
             "maximum_line_loading_id": index,
             "maximum_line_loading_timestamp": summary.loc[index, "max_loading_timestamp"],
-            "maximum_line_loading": summary.loc[index, "max_loading"]}
-        
+            "maximum_line_loading": summary.loc[index, "max_loading"],
+        }
+
         del power_grid_copy
-
-
 
     # TODO create alternative power_grids, one for each different alternative line. Summarize the
     # results into the output table. Use
