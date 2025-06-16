@@ -305,7 +305,7 @@ def n_1_calculation(power_grid: PowerGrid, line_id: int):
     output.index.name = "alternative_line"
 
     # check for alternative lines
-    power_grid.update_graph()
+    # power_grid.update_graph()
     alternative_lines = find_alternative_edges(power_grid.graph, line_id)
     print(alternative_lines)
 
