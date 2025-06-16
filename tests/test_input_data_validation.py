@@ -149,7 +149,7 @@ def test_line_connected_to_same_node_both_sides():
         validate_power_grid_data(
             load_grid_json(base_test_data_path + "err_line_connected_both_sides_same_node" + ".json")
         )
-    assert output.value.args[0] == "An edge is connected to the same node on both sides."
+    assert output.value.args[0] == "A line is connected to the same node on both sides."
 
 
 def test_2_transformers():
