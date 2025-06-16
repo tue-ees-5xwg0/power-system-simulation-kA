@@ -117,3 +117,10 @@ def test_power_grid_model_get_line_summary():
 def test_feature_ev_penetration_level():
 
     test_grid = PowerGrid(pgm_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
+
+def optimum_tap_position():
+
+    test_grid = PowerGrid(pgm_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path)
+
+    
+
