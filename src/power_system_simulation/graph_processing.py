@@ -9,7 +9,8 @@ It includes functionality to:
 - Identify alternative edges that can restore connectivity when a line is disconnected
 - Enable or disable individual edges by ID
 
-These functions form the foundation for topology-based analysis in LV grids, including EV penetration analysis and N-1 contingency calculations.
+These functions form the foundation for topology-based analysis in LV grids, including 
+EV penetration analysis and N-1 contingency calculations.
 """
 
 import copy
