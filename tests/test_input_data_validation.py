@@ -39,6 +39,28 @@ def test_init_duplicate_node_ids():
     assert output.value.args[0] == "There are components with duplicate IDs."
 
 
+def test_init_duplicate_ids_transformer():
+    """
+    Duplicate id 9, should raise an IDNotUniqueError.
+
+    1--<9>--9--[10]-3------(16)
+    ^       |
+    20     [11]
+            |
+            4--[12]-5------(17)
+            |
+           [13]
+            |
+            6--[14]-7--[15]-8-----(19)
+                    |
+                   (18)
+    """
+
+    with pytest.raises(IDNotUniqueError) as output:
+        validate_power_grid_data(load_grid_json(base_test_data_path + "err_duplicate_items_transformer" + ".json"))
+    assert output.value.args[0] == "There are components with duplicate IDs."
+
+
 def test_init_invalid_sym_load_node_id():
     """
     A sym_load is connected to a non-existent node.
@@ -150,6 +172,32 @@ def test_line_connected_to_same_node_both_sides():
             load_grid_json(base_test_data_path + "err_line_connected_both_sides_same_node" + ".json")
         )
     assert output.value.args[0] == "A line is connected to the same node on both sides."
+
+
+def test_transformer_connected_to_same_node_both_sides():
+    """
+    transformer 9 is connected to node 1 on both sides
+
+    //==<9>
+    ||
+    1--[99]-2--[10]-3------(16)
+    ^       |
+    20     [11]
+            |
+     [99]== 4--[12]-5------(17)
+            |
+           [13]
+            |
+            6--[14]-7--[15]-8-----(19)
+                    |
+                   (18)
+    """
+
+    with pytest.raises(IDNotUniqueError) as output:
+        validate_power_grid_data(
+            load_grid_json(base_test_data_path + "err_transformer_connected_both_sides_same_node" + ".json")
+        )
+    assert output.value.args[0] == "The transformer is connected to the same node on both sides."
 
 
 def test_2_transformers():

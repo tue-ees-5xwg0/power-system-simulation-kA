@@ -5,8 +5,10 @@ from power_grid_model.utils import json_deserialize
 
 from power_system_simulation.exceptions import *
 from power_system_simulation.graph_processing import *
+from power_system_simulation.input_data_validation import load_grid_json, validate_power_grid_data
 
 base_test_data_path = "tests/test_data/incorrect_power_grids/"
+pgm_tiny_path = "tests/test_data/tiny_power_grid/input_network_data.json"
 
 
 def test_init_normal():
@@ -29,6 +31,12 @@ def test_init_normal():
     with open(base_test_data_path + "normal" + ".json", "r", encoding="utf-8") as file:
         power_grid = json_deserialize(file.read())
     create_graph(power_grid)
+
+
+def test_init_without_transformer_assignment1_compatability():
+
+    validate_power_grid_data(load_grid_json(pgm_tiny_path))
+    create_graph(load_grid_json(pgm_tiny_path))
 
 
 def test_init_graph_not_connected_error():

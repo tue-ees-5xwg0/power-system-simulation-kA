@@ -28,41 +28,42 @@ def create_graph(power_grid_data: np.ndarray) -> nx.Graph:
     lines = power_grid_data["line"]
     source = power_grid_data["source"]
     sym_loads = power_grid_data["sym_load"]
-    transformer = power_grid_data["transformer"]
 
     graph = nx.Graph()
 
     for node in nodes:
         graph.add_node(node["id"], type="node", u_rated=node["u_rated"])
 
-    graph.add_edge(
-        transformer["from_node"][0],
-        transformer["to_node"][0],
-        id=transformer["id"][0],
-        type="transformer",
-        from_status=transformer["from_status"][0],
-        to_status=transformer["to_status"][0],
-    )
-
-    for line in lines:
+    try:
+        transformer = power_grid_data["transformer"]
         graph.add_edge(
-            line["from_node"],
-            line["to_node"],
-            id=line["id"],
-            type="line",
-            from_status=line["from_status"],
-            to_status=line["to_status"],
+            transformer["from_node"][0],
+            transformer["to_node"][0],
+            id=transformer["id"][0],
+            type="transformer",
+            from_status=transformer["from_status"][0],
+            to_status=transformer["to_status"][0],
         )
+    finally:
+        for line in lines:
+            graph.add_edge(
+                line["from_node"],
+                line["to_node"],
+                id=line["id"],
+                type="line",
+                from_status=line["from_status"],
+                to_status=line["to_status"],
+            )
 
-    for sym_load in sym_loads:
-        graph.add_node(sym_load["id"], type="sym_load")
-        graph.add_edge(sym_load["id"], sym_load["node"], type="sym_load")
+        for sym_load in sym_loads:
+            graph.add_node(sym_load["id"], type="sym_load")
+            graph.add_edge(sym_load["id"], sym_load["node"], type="sym_load")
 
-    graph.graph["source_node_id"] = source[0]["node"]
+        graph.graph["source_node_id"] = source[0]["node"]
 
-    validate_graph(graph)
+        validate_graph(graph)
 
-    return graph
+        return graph
 
 
 def validate_graph(graph):
