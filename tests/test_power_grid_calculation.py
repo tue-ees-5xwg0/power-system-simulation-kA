@@ -128,7 +128,23 @@ def test_feature_ev_penetration_level():
     test_grid = PowerGrid(
         pgm_small_path, meta_data_small_path, p_profile_path=p_profile_small_path, q_profile_path=q_profile_small_path
     )
-    ev_penetration_level(test_grid, ev_p_profile_small_path, 0.5)
+    #print(test_grid.p_profile)
+    test_grid.run()
+    
+    [test_voltage_summary, test_line_summary] = ev_penetration_level(test_grid, ev_p_profile_small_path, 0.5, 28)
+    #print(test_line_summary)
+    #print(test_grid.line_summary)
+    assert test_voltage_summary is not None
+    assert test_line_summary is not None
+
+    test_results = compare_pandas_dataframes_fp(
+        test_grid.line_summary,
+        test_line_summary,
+        ["max_loading_timestamp", "max_loading", "min_loading_timestamp", "min_loading"],
+    )
+    assert test_results[0] == False
+
+    
 
 
 # def test_feature_optimum_tap_position():

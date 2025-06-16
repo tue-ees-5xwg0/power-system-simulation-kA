@@ -202,6 +202,8 @@ def find_alternative_edges(graph: nx.Graph, disabled_edge_id: int) -> List[int]:
 
 def find_lv_feeder_ids(graph: nx.Graph):
     """
+    Maybe not needed due to meta_data file.
+
     Finds the LV feeder line IDs from the power grid graph by identifying all lines
     that originate from the transformer's low-voltage (to_node) side.
     """

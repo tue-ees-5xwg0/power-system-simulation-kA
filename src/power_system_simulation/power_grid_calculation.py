@@ -220,31 +220,30 @@ def ev_penetration_level(
     ev_profiles = pd.read_parquet(ev_charging_profile_path)
     available_ev_profiles = ev_profiles.copy()
     ev_p_profile = pg_copy.p_profile.copy()
-    ev_charging_profile = pd.read_parquet(ev_charging_profile_path)
 
     # Get grid data
     sym_load_ids = pg_copy.p_profile.columns.tolist()
     num_houses = len(sym_load_ids)
-    if num_houses > len(ev_profiles):
-        raise ValidationError(f"The number of EV charging profiles is less than the number of houses")
-    pg_copy_graph = create_graph(pg_copy)
-    lv_feeder_ids = find_lv_feeder_ids(pg_copy_graph)
+    pg_copy_graph = create_graph(pg_copy.power_grid)
+    lv_feeder_ids = find_lv_feeder_ids(pg_copy.power_grid)
     num_feeders = len(lv_feeder_ids)
     num_EV_per_LV = math.floor(penetration_level * num_houses / num_feeders)
-    validate_ev_charging_profile(power_grid, ev_charging_profile)
-    validate_power_profiles_timestamps(power_grid.p_profile, ev_charging_profile)
+
+    # Validate input data
+    validate_ev_charging_profile(pg_copy, ev_profiles)
+    validate_power_profiles_timestamps(power_grid.p_profile, ev_profiles)
 
     # Map feeders to downstream houses
     map_feeder_house = {}
     for feeder_id in lv_feeder_ids:
         downstream_vertices = find_downstream_vertices(pg_copy_graph, feeder_id)
-        feeder_houses = [node for node in downstream_vertices if node in sym_load_ids]
+        feeder_houses = [node for node in downstream_vertices if node in pg_copy.power_grid]
         map_feeder_house[feeder_id] = feeder_houses
 
     # Assign EV profiles to houses
     for feeder_id, feeder_houses in map_feeder_house.items():
         if num_EV_per_LV > len(feeder_houses):
-            raise ValueError(f"Feeder {feeder_id} doesn not have enough houses.")
+            raise ValueError(f"Feeder {feeder_id} doesn't not have enough houses.")
 
         selected_houses = rndm.sample(feeder_houses, num_EV_per_LV)
         selected_ev_profiles = rndm.sample(list(available_ev_profiles.columns), num_EV_per_LV)
@@ -256,6 +255,7 @@ def ev_penetration_level(
 
     # Run powerflow with altered p_profile
     pg_copy.p_profile = ev_p_profile
+    #print(pg_copy.p_profile)
     pg_copy.run()
 
     return [pg_copy.voltage_summary, pg_copy.line_summary]
