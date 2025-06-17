@@ -1,0 +1,10 @@
+{
+  "mv_source_node": 1,
+  "lv_busbar": 2,
+  "transformer": 9,
+  "lv_feeders": [
+    10,
+    11
+  ],
+  "source": 20
+}
