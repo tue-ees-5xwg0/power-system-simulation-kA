@@ -304,6 +304,14 @@ def n_1_calculation(power_grid: PowerGrid, line_id: int):
     output = pd.DataFrame(columns=["maximum_line_loading_id", "maximum_line_loading_timestamp", "maximum_line_loading"])
     output.index.name = "alternative_line"
 
+    grid = power_grid.line_summary
+    index = grid["max_loading"].idxmax()
+    output.loc[line_id] = {
+        "maximum_line_loading_id": index,
+        "maximum_line_loading_timestamp": grid.loc[index, "max_loading_timestamp"],
+        "maximum_line_loading": grid.loc[index, "max_loading"],
+    }
+
     # check for alternative lines
     # power_grid.update_graph()
     alternative_lines = find_alternative_edges(power_grid.graph, line_id)
